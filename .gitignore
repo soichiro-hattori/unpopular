@@ -1,0 +1,10 @@
+*.zip
+*.png
+*.fits
+*.gif
+*.sh
+*.mp4
+
+
+generated_plots/
+.ipynb_checkpoints/
