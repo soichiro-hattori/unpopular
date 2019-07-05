@@ -4,6 +4,7 @@
 *.gif
 *.sh
 *.mp4
+*.pyc
 
 
 generated_plots/
