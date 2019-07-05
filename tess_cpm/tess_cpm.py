@@ -147,6 +147,13 @@ class CPM(object):
         self.predictor_pixels_mask = np.ma.masked_where(predictor_pixels == 0, predictor_pixels)
         
         self.are_predictors_set = True
+
+    def set_target_exclusion_predictors(self, target_row, target_col, exclusion=5, exclusion_method="cross",
+                                       num_predictor_pixels=128, predictor_method="similar_brightness", seed=None):
+        """Convenience function that simply calls the set_target, set_exclusion, set_predictor_pixels functions sequentially"""
+        self.set_target(target_row, target_col)
+        self.set_exclusion(exclusion, method=exclusion_method)
+        self.set_predictor_pixels(num_predictor_pixels, method=predictor_method, seed=seed)
         
     def train(self, reg):
         if ((self.is_target_set  == False) or (self.is_exclusion_set == False)
