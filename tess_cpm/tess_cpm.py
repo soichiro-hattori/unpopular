@@ -2,7 +2,6 @@ import numpy as np
 from astropy.io import fits
 from scipy.optimize import minimize
 
-
 class CPM(object):
     """
     """
@@ -174,6 +173,21 @@ class CPM(object):
         self.trained = True
         
     def lsq(self, reg, rescale=True, polynomials=False):
+        """Perform linear least squares with L2-regularization to find the coefficients for the model
+
+        .. note:: While we have access to the flux errors, we chose not to include them
+                    for computational efficiency. The errors are also not significantly different
+                    across the entire measurement duration.
+
+        Args:
+            reg (int): The L2-regularization value. Setting this argument to ``0`` removes
+                        the regularization and is equivalent to performing ordinary least squares.
+            rescale (Optional[boolean]): Choose whether to use zero-centered and median rescaled values
+                        when performing least squares. The default is ``True`` and is recommended for numerical stability.
+            polynomials (Optional[boolean]): Choose whether to include a set of polynomials (1, t, t^2, t^3)
+                        as model components. The default is ``False``.
+        
+        """
         if ((self.is_target_set  == False) or (self.is_exclusion_set == False)
            or self.are_predictors_set == False):
             print("You missed a step.")
@@ -232,7 +246,8 @@ class CPM(object):
         
         return (top_n_loc, top_n_mask)
     
-    def entire_image(self, reg):
+    def entire_image(self, reg, exclusion=4, exclusion_method="cross", num_predictor_pixels=128,
+                        predictor_method="similar_brightness", rescale=True, polynomials=False):
         self.reg = reg
         self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
         num_col = self.im_fluxes[0].shape[1]
@@ -241,8 +256,17 @@ class CPM(object):
         cols = idx % num_col
         for (row, col) in zip(rows, cols):
             self.set_target(row, col)
-            self.set_exclusion(4, method="cross")
-            self.set_predictor_pixels(128, method="similar_brightness")
-            self.lsq(reg, rescale=True, polynomials=True)
+            self.set_exclusion(exclusion, method=exclusion_method)
+            self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
+            self.lsq(reg, rescale=rescale, polynomials=polynomials)
             self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
         self.im_diff = self.im_fluxes - self.im_predicted_fluxes
+
+    def difference_image_sap(self, row, col, size):
+        """Simple Aperture Photometry for a given pixel in the difference images
+        
+        """
+        aperture = self.im_diff[:, max(0, row-size):min(row+size+1, self.im_diff.shape[1]), 
+                        max(0, col-size):min(col+size+1, self.im_diff.shape[1])]
+        aperture_lc = np.sum(aperture, axis=(1, 2))
+        return aperture, aperture_lc
