@@ -22,9 +22,14 @@ class CPM(object):
             self.im_errors = self.im_errors[b]
             
         # Calculate the vandermode matrix to add polynomial components to model
-        self.scaled_centered_time = ((self.time - (self.time.max() + self.time.min())/2) 
+        self.org_scaled_centered_time = ((self.time - (self.time.max() + self.time.min())/2) 
                                     / (self.time.max() - self.time.min()))
-        self.v_matrix = np.vander(self.scaled_centered_time, N=4, increasing=True)
+        self.scaled_centered_time = None
+        # self.v_matrix = np.vander(self.scaled_centered_time, N=4, increasing=True)
+        self.poly_terms = None
+        self.v_matrix = None
+        self.poly_reg = None
+        # self.poly_reg_arr = None
         
         self.target_row = None
         self.target_col = None
@@ -53,7 +58,7 @@ class CPM(object):
         self.rescaled_predictor_pixels_fluxes = None
         
         self.fit = None
-        self.regularization = None
+        self.cpm_regularization = None
         self.lsq_params = None
         self.cpm_params = None
         self.poly_params = None
@@ -67,6 +72,17 @@ class CPM(object):
         self.is_exclusion_set = False
         self.are_predictors_set = False
         self.trained = False
+        self.over_entire_image = False
+
+    def set_poly_model(self, time_interval, poly_terms, poly_reg):
+        """Set the polynomial model parameters
+        
+        """
+        self.scaled_centered_time = time_interval*self.org_scaled_centered_time
+        self.poly_terms = poly_terms
+        self.v_matrix = np.vander(self.scaled_centered_time, N=poly_terms, increasing=True)
+        self.poly_reg = poly_reg
+        # self.poly_reg_arr = np.repeat(self.poly_reg, self.poly_terms)
         
     def set_target(self, target_row, target_col):
         self.target_row = target_row
@@ -172,15 +188,15 @@ class CPM(object):
         
         self.trained = True
         
-    def lsq(self, reg, rescale=True, polynomials=False):
+    def lsq(self, cpm_reg, rescale=True, polynomials=False):
         """Perform linear least squares with L2-regularization to find the coefficients for the model
 
-        .. note:: While we have access to the flux errors, we chose not to include them
-                    for computational efficiency. The errors are also not significantly different
+        .. note:: Although we have the flux errors, we chose not to include them (i.e. not do weighted least squares)
+                    for computational efficiency for now. The errors are also not significantly different
                     across the entire measurement duration.
 
         Args:
-            reg (int): The L2-regularization value. Setting this argument to ``0`` removes
+            cpm_reg (int): The L2-regularization value. Setting this argument to ``0`` removes
                         the regularization and is equivalent to performing ordinary least squares.
             rescale (Optional[boolean]): Choose whether to use zero-centered and median rescaled values
                         when performing least squares. The default is ``True`` and is recommended for numerical stability.
@@ -192,23 +208,27 @@ class CPM(object):
            or self.are_predictors_set == False):
             print("You missed a step.")
         
-        self.regularization = reg
+        self.cpm_regularization = cpm_reg
         num_components = self.num_predictor_pixels
         
         if (rescale == False):
             print("Calculating parameters using unscaled values.")
             y = self.target_fluxes
             m = self.predictor_pixels_fluxes  # Shape is (num of measurements, num of predictors)
+            l = cpm_reg*np.identity(num_components)
         
         elif (rescale == True):
             y = self.rescaled_target_fluxes
             m = self.rescaled_predictor_pixels_fluxes
+            l = cpm_reg*np.identity(num_components)
             
         if (polynomials == True):
             m = np.hstack((m, self.v_matrix))
             num_components = num_components + self.v_matrix.shape[1]
+            l = np.hstack((np.repeat(cpm_reg, self.num_predictor_pixels),
+                            np.repeat(self.poly_reg, self.poly_terms)))*np.identity(num_components)
             
-        l = reg*np.identity(num_components)
+        # l = reg*np.identity(num_components)
         a = np.dot(m.T, m) + l
         b = np.dot(m.T, y)
         
@@ -246,9 +266,9 @@ class CPM(object):
         
         return (top_n_loc, top_n_mask)
     
-    def entire_image(self, reg, exclusion=4, exclusion_method="cross", num_predictor_pixels=128,
+    def entire_image(self, cpm_reg, exclusion=4, exclusion_method="cross", num_predictor_pixels=128,
                         predictor_method="similar_brightness", rescale=True, polynomials=False):
-        self.reg = reg
+        self.cpm_regularization = cpm_reg
         self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
         num_col = self.im_fluxes[0].shape[1]
         idx = np.arange(num_col**2)
@@ -258,15 +278,57 @@ class CPM(object):
             self.set_target(row, col)
             self.set_exclusion(exclusion, method=exclusion_method)
             self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
-            self.lsq(reg, rescale=rescale, polynomials=polynomials)
+            self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
             self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
         self.im_diff = self.im_fluxes - self.im_predicted_fluxes
 
-    def difference_image_sap(self, row, col, size):
+        self.over_entire_image = True
+
+    def difference_image_sap(self, row, col, size, exclusion=4, exclusion_method="cross", num_predictor_pixels=128,
+                        predictor_method="similar_brightness", rescale=True, polynomials=False):
         """Simple Aperture Photometry for a given pixel in the difference images
         
         """
+
+        if (self.over_entire_image == False):
+            side = 2*size+1
+            
+            cpm_reg = self.cpm_regularization
+            self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
+            rows = np.repeat(np.arange(row-size, row+size+1), side)
+            cols = np.tile(np.arange(col-size, col+size+1), side)
+            for (r, c) in zip(rows, cols):
+                self.set_target(r, c)
+                self.set_exclusion(exclusion, method=exclusion_method)
+                self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
+                self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
+                self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
+            self.im_diff = self.im_fluxes - self.im_predicted_fluxes
+
         aperture = self.im_diff[:, max(0, row-size):min(row+size+1, self.im_diff.shape[1]), 
-                        max(0, col-size):min(col+size+1, self.im_diff.shape[1])]
+                            max(0, col-size):min(col+size+1, self.im_diff.shape[1])]
         aperture_lc = np.sum(aperture, axis=(1, 2))
         return aperture, aperture_lc
+
+
+        # if (self.over_entire_image == True):
+        #     aperture = self.im_diff[:, max(0, row-size):min(row+size+1, self.im_diff.shape[1]), 
+        #                     max(0, col-size):min(col+size+1, self.im_diff.shape[1])]
+        #     aperture_lc = np.sum(aperture, axis=(1, 2))
+        #     return aperture, aperture_lc
+
+        # else:
+        #     side = 2*size+1
+            
+        #     self.cpm_regularization = cpm_reg
+        #     self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
+        #     rows = np.repeat(np.arange(row-size, row+size+1), side)
+        #     cols = np.tile(np.arange(col-size, col+size+1), side)
+        #     for (r, c) in zip(rows, cols):
+        #         self.set_target(r, c)
+        #         self.set_exclusion(exclusion, method=exclusion_method)
+        #         self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
+        #         self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
+        #         self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
+        #     self.im_diff = self.im_fluxes - self.im_predicted_fluxes
+

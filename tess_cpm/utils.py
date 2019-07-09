@@ -86,7 +86,7 @@ def summary_plot(cpm, n, save=False):
         ax5.plot(cpm.time, data - cpm.lsq_prediction, ".-", label="Residual (Data - Model)", markersize=7)
     
     plt.suptitle("N={} Predictor Pixels, Method: {}, L2Reg={}".format(cpm.num_predictor_pixels,
-                cpm.method_predictor_pixels, "{:.0e}".format(cpm.regularization)), y=0.89, fontsize=15)
+                cpm.method_predictor_pixels, "{:.0e}".format(cpm.cpm_regularization)), y=0.89, fontsize=15)
     
     ax1.set_title("Cmap set to 10%, 90% values of image")
     ax2.set_title("Target (White), Excluded (Red Shade), Predictors (Black)")
