@@ -1,5 +1,6 @@
 import numpy as np
 from astropy.io import fits
+from astropy.wcs import WCS
 from scipy.optimize import minimize
 
 class CPM(object):
@@ -12,6 +13,10 @@ class CPM(object):
             self.im_fluxes = hdulist[1].data["FLUX"]  # Shape is (Number of Images, 64, 64)
             self.im_errors = hdulist[1].data["FLUX_ERR"]  # Shape is (Number of Images, 64, 64)
             self.quality = hdulist[1].data["QUALITY"]
+            try:
+                self.wcs_info = WCS(hdulist[2].header)
+            except:
+                print("WCS Info could not be retrieved")
             
         # If remove_bad is set to True, we'll remove the values with a nonzero entry in the quality array
         if remove_bad == True:
@@ -163,7 +168,7 @@ class CPM(object):
         
         self.are_predictors_set = True
 
-    def set_target_exclusion_predictors(self, target_row, target_col, exclusion=5, exclusion_method="cross",
+    def set_target_exclusion_predictors(self, target_row, target_col, exclusion=4, exclusion_method="cross",
                                        num_predictor_pixels=128, predictor_method="similar_brightness", seed=None):
         """Convenience function that simply calls the set_target, set_exclusion, set_predictor_pixels functions sequentially"""
         self.set_target(target_row, target_col)
@@ -279,7 +284,13 @@ class CPM(object):
             self.set_exclusion(exclusion, method=exclusion_method)
             self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
             self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
-            self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
+            if (polynomials == True):
+                    # print("polynomials set to {}".format(polynomials))
+                    self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
+            elif (polynomials == False):
+                    # print("polynomials set to {}".format(polynomials))
+                    self.im_predicted_fluxes[:, row, col] = self.lsq_prediction
+            # self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
         self.im_diff = self.im_fluxes - self.im_predicted_fluxes
 
         self.over_entire_image = True
@@ -302,7 +313,10 @@ class CPM(object):
                 self.set_exclusion(exclusion, method=exclusion_method)
                 self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
                 self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
-                self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
+                if (polynomials == True):
+                    self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
+                elif (polynomials == False):
+                    self.im_predicted_fluxes[:, r, c] = self.lsq_prediction
             self.im_diff = self.im_fluxes - self.im_predicted_fluxes
 
         aperture = self.im_diff[:, max(0, row-size):min(row+size+1, self.im_diff.shape[1]), 

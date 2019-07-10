@@ -102,7 +102,7 @@ def summary_plot(cpm, n, save=False):
     
     if (save == True):
         plt.savefig("cpm_target_{}_reg_{}_filename_{}.png".format((cpm.target_row,cpm.target_col),
-                    "{:.0e}".format(cpm.regularization), cpm.file_name), dpi=200)
+                    "{:.0e}".format(cpm.cpm_regularization), cpm.file_name), dpi=200)
 
 # def sap(row, col, size, diff):
 #     """Simple Aperture Photometry for a given pixel.
@@ -112,3 +112,6 @@ def summary_plot(cpm, n, save=False):
 #                     max(0, col-size):min(col+size+1, diff.shape[1])]
 #     aperture_lc = np.sum(aperture, axis=(1, 2))
 #     return aperture, aperture_lc
+
+# def patch_sectors(a_time, b_time, a_flux, b_flux):
+    
