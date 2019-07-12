@@ -27,7 +27,7 @@ def plot_lightcurves(cpm):
         axs[i].legend(fontsize=15)
     plt.show()
 
-def summary_plot(cpm, n, save=False):
+def summary_plot(cpm, n, subtract_polynomials=False, save=False):
     """Shows a summary plot of a CPM fit to a pixel.
 
     The top row consists of three images: (left) image showing median values for each pixel,
@@ -68,22 +68,27 @@ def summary_plot(cpm, n, save=False):
     ax3.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
     ax3.imshow(top_n_mask, origin="lower", cmap="Set1")
     
-    data = cpm.target_fluxes
+    # data = cpm.target_fluxes
+    data = cpm.rescaled_target_fluxes
     model = cpm.lsq_prediction
-#     res = data - model
-    res = data - cpm.cpm_prediction
+    if (subtract_polynomials == True) or ((subtract_polynomials == False) & (type(cpm.cpm_prediction) == None)):
+        res = data - model
+        plot_label = "Residual (Data - Model)"
+    elif ((subtract_polynomials == False) & (type(cpm.cpm_prediction) != None)):
+        res = data - (cpm.cpm_prediction + cpm.const_prediction)
+        plot_label = "Residual (Data - CPM)"
     
     ax4.plot(cpm.time, data, ".", color="k", label="Data", markersize=4)
     ax4.plot(cpm.time, model, ".", color="C3", label="Model", markersize=4, alpha=0.4)
-    if (cpm.poly_params.shape != (0,)):
+    if ((subtract_polynomials == False) & (type(cpm.cpm_prediction) != None)):
         ax4.plot(cpm.time, cpm.cpm_prediction, ".", color="C1", label="CPM", markersize=3, alpha=0.4)
         ax4.plot(cpm.time, cpm.poly_prediction, ".", color="C2", label="Poly", markersize=3, alpha=0.4)
     
 #     ax5.plot(cpm.time, res, ".-", label="Residual (Data - Model)", markersize=7)
-    if (cpm.poly_params.shape != (0,)):
-        ax5.plot(cpm.time, res, ".-", label="Residual (Data - CPM)", markersize=7)
+    if ((subtract_polynomials == False) & (type(cpm.cpm_prediction) != None)):
+        ax5.plot(cpm.time, res, ".-", label=plot_label, markersize=7)
     else:
-        ax5.plot(cpm.time, data - cpm.lsq_prediction, ".-", label="Residual (Data - Model)", markersize=7)
+        ax5.plot(cpm.time, data - cpm.lsq_prediction, ".-", label=plot_label, markersize=7)
     
     plt.suptitle("N={} Predictor Pixels, Method: {}, L2Reg={}".format(cpm.num_predictor_pixels,
                 cpm.method_predictor_pixels, "{:.0e}".format(cpm.cpm_regularization)), y=0.89, fontsize=15)
@@ -93,11 +98,13 @@ def summary_plot(cpm, n, save=False):
     ax3.set_title("Top N={} contributing pixels to prediction (Red)".format(n))
     
     ax4.set_title("Lightcurves of Target Pixel {}".format((cpm.target_row, cpm.target_col)))
-    ax4.set_ylabel("Flux [e-/s]")
+    # ax4.set_ylabel("Flux [e-/s]")
+    ax4.set_ylabel("Relative Flux")
     ax4.legend(fontsize=12)
     
     ax5.set_xlabel("Time (BJD-2457000) [Day]", fontsize=12)
-    ax5.set_ylabel("Flux [e-/s]")
+    # ax5.set_ylabel("Residual Flux [e-/s]")
+    ax5.set_ylabel("Fractional Relative Fux")
     ax5.legend(fontsize=12)
     
     if (save == True):

@@ -67,6 +67,8 @@ class CPM(object):
         self.lsq_params = None
         self.cpm_params = None
         self.poly_params = None
+
+        self.const_prediction = None
         self.cpm_prediction = None
         self.poly_prediction = None
         self.prediction = None
@@ -104,7 +106,7 @@ class CPM(object):
         
         self.is_target_set = True
         
-    def set_exclusion(self, exclusion, method="cross"):
+    def set_exclusion(self, exclusion, method="closest"):
         if self.is_target_set == False:
             print("Please set the target pixel to predict using the set_target() method.")
             return
@@ -168,7 +170,7 @@ class CPM(object):
         
         self.are_predictors_set = True
 
-    def set_target_exclusion_predictors(self, target_row, target_col, exclusion=4, exclusion_method="cross",
+    def set_target_exclusion_predictors(self, target_row, target_col, exclusion=4, exclusion_method="closest",
                                        num_predictor_pixels=128, predictor_method="similar_brightness", seed=None):
         """Convenience function that simply calls the set_target, set_exclusion, set_predictor_pixels functions sequentially"""
         self.set_target(target_row, target_col)
@@ -238,20 +240,24 @@ class CPM(object):
         b = np.dot(m.T, y)
         
         self.lsq_params = np.linalg.solve(a, b)
+        self.lsq_prediction = np.dot(m, self.lsq_params)
         self.cpm_params = self.lsq_params[:self.num_predictor_pixels]
         self.poly_params = self.lsq_params[self.num_predictor_pixels:]
-        self.cpm_prediction = np.dot(m[:, :self.num_predictor_pixels], self.cpm_params)
-        self.poly_prediction = np.dot(m[:, self.num_predictor_pixels:], self.poly_params)
-        self.lsq_prediction = np.dot(m, self.lsq_params)
+
+        if (polynomials == True):
+            self.const_prediction = self.poly_params[0]  # Constant offset
+            self.cpm_prediction = np.dot(m[:, :self.num_predictor_pixels], self.cpm_params)
+            self.poly_prediction = np.dot(m[:, self.num_predictor_pixels:], self.poly_params) - self.const_prediction
         
-        if (rescale == True):
-            self.lsq_prediction = np.median(self.target_fluxes)*(self.lsq_prediction + 1)
-            if (polynomials == True):
-                self.cpm_prediction = np.median(self.target_fluxes)*(self.cpm_prediction + 1)
-                self.poly_prediction = np.median(self.target_fluxes)*(self.poly_prediction + 1)
+        # if (rescale == True):
+        #     self.lsq_prediction = np.median(self.target_fluxes)*(self.lsq_prediction + 1)
+        #     if (polynomials == True):
+        #         self.constant_prediction = np.median(self.target_fluxes)*self.poly_params[0]
+        #         self.cpm_prediction = np.median(self.target_fluxes)*(self.cpm_prediction + 1)
+        #         self.poly_prediction = np.median(self.target_fluxes)*(self.poly_prediction + 1) - self.constant_prediction
                 
         self.trained = True
-        
+
     def get_contributing_pixels(self, number):
         """Return the n-most contributing pixels' locations and a mask to see them"""
         if self.trained == False:
@@ -270,32 +276,50 @@ class CPM(object):
         top_n_mask = np.ma.masked_where(top_n == 0, top_n)
         
         return (top_n_loc, top_n_mask)
-    
-    def entire_image(self, cpm_reg, exclusion=4, exclusion_method="cross", num_predictor_pixels=128,
+
+    def _batch(self, cpm_reg, rows, cols, exclusion=4, exclusion_method="closest", num_predictor_pixels=128,
                         predictor_method="similar_brightness", rescale=True, polynomials=False):
         self.cpm_regularization = cpm_reg
         self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
-        num_col = self.im_fluxes[0].shape[1]
-        idx = np.arange(num_col**2)
-        rows = idx // num_col
-        cols = idx % num_col
         for (row, col) in zip(rows, cols):
             self.set_target(row, col)
             self.set_exclusion(exclusion, method=exclusion_method)
             self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
             self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
             if (polynomials == True):
-                    # print("polynomials set to {}".format(polynomials))
-                    self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
+                    self.im_predicted_fluxes[:, row, col] = self.cpm_prediction + self.const_prediction
             elif (polynomials == False):
-                    # print("polynomials set to {}".format(polynomials))
                     self.im_predicted_fluxes[:, row, col] = self.lsq_prediction
-            # self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
-        self.im_diff = self.im_fluxes - self.im_predicted_fluxes
+        self.im_diff = self.rescaled_im_fluxes - self.im_predicted_fluxes
+
+    def entire_image(self, cpm_reg, exclusion=4, exclusion_method="closest", num_predictor_pixels=128,
+                        predictor_method="similar_brightness", rescale=True, polynomials=False):
+        num_col = self.im_fluxes[0].shape[1]
+        idx = np.arange(num_col**2)
+        rows = idx // num_col
+        cols = idx % num_col
+
+        self._batch(cpm_reg, rows, cols, exclusion=exclusion, exclusion_method=exclusion_method, num_predictor_pixels=num_predictor_pixels,
+                        predictor_method=predictor_method, rescale=rescale, polynomials=polynomials)
+
+        # self.cpm_regularization = cpm_reg
+        # self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
+        # num_col = self.im_fluxes[0].shape[1]
+        # for (row, col) in zip(rows, cols):
+        #     self.set_target(row, col)
+        #     self.set_exclusion(exclusion, method=exclusion_method)
+        #     self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
+        #     self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
+        #     if (polynomials == True):
+        #             self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
+        #     elif (polynomials == False):
+        #             self.im_predicted_fluxes[:, row, col] = self.lsq_prediction
+        #     # self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
+        # self.im_diff = self.im_fluxes - self.im_predicted_fluxes
 
         self.over_entire_image = True
 
-    def difference_image_sap(self, row, col, size, exclusion=4, exclusion_method="cross", num_predictor_pixels=128,
+    def difference_image_sap(self, cpm_reg, row, col, size, exclusion=4, exclusion_method="closest", num_predictor_pixels=128,
                         predictor_method="similar_brightness", rescale=True, polynomials=False):
         """Simple Aperture Photometry for a given pixel in the difference images
         
@@ -303,46 +327,28 @@ class CPM(object):
 
         if (self.over_entire_image == False):
             side = 2*size+1
-            
-            cpm_reg = self.cpm_regularization
-            self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
+
             rows = np.repeat(np.arange(row-size, row+size+1), side)
             cols = np.tile(np.arange(col-size, col+size+1), side)
-            for (r, c) in zip(rows, cols):
-                self.set_target(r, c)
-                self.set_exclusion(exclusion, method=exclusion_method)
-                self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
-                self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
-                if (polynomials == True):
-                    self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
-                elif (polynomials == False):
-                    self.im_predicted_fluxes[:, r, c] = self.lsq_prediction
-            self.im_diff = self.im_fluxes - self.im_predicted_fluxes
+
+            self._batch(cpm_reg, rows, cols, exclusion=exclusion, exclusion_method=exclusion_method, num_predictor_pixels=num_predictor_pixels,
+                        predictor_method=predictor_method, rescale=rescale, polynomials=polynomials)
+
+            # self.cpm_regularization = cpm_reg
+            # self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
+
+            # for (r, c) in zip(rows, cols):
+            #     self.set_target(r, c)
+            #     self.set_exclusion(exclusion, method=exclusion_method)
+            #     self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
+            #     self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
+            #     if (polynomials == True):
+            #         self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
+            #     elif (polynomials == False):
+            #         self.im_predicted_fluxes[:, r, c] = self.lsq_prediction
+            # self.im_diff = self.im_fluxes - self.im_predicted_fluxes
 
         aperture = self.im_diff[:, max(0, row-size):min(row+size+1, self.im_diff.shape[1]), 
                             max(0, col-size):min(col+size+1, self.im_diff.shape[1])]
         aperture_lc = np.sum(aperture, axis=(1, 2))
         return aperture, aperture_lc
-
-
-        # if (self.over_entire_image == True):
-        #     aperture = self.im_diff[:, max(0, row-size):min(row+size+1, self.im_diff.shape[1]), 
-        #                     max(0, col-size):min(col+size+1, self.im_diff.shape[1])]
-        #     aperture_lc = np.sum(aperture, axis=(1, 2))
-        #     return aperture, aperture_lc
-
-        # else:
-        #     side = 2*size+1
-            
-        #     self.cpm_regularization = cpm_reg
-        #     self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
-        #     rows = np.repeat(np.arange(row-size, row+size+1), side)
-        #     cols = np.tile(np.arange(col-size, col+size+1), side)
-        #     for (r, c) in zip(rows, cols):
-        #         self.set_target(r, c)
-        #         self.set_exclusion(exclusion, method=exclusion_method)
-        #         self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
-        #         self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
-        #         self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
-        #     self.im_diff = self.im_fluxes - self.im_predicted_fluxes
-
