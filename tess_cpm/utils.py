@@ -71,24 +71,30 @@ def summary_plot(cpm, n, subtract_polynomials=False, save=False):
     # data = cpm.target_fluxes
     data = cpm.rescaled_target_fluxes
     model = cpm.lsq_prediction
-    if (subtract_polynomials == True) or ((subtract_polynomials == False) & (type(cpm.cpm_prediction) == None)):
+    if ((subtract_polynomials == True) or ((subtract_polynomials == False) & (cpm.cpm_prediction is None))):
         res = data - model
         plot_label = "Residual (Data - Model)"
-    elif ((subtract_polynomials == False) & (type(cpm.cpm_prediction) != None)):
+    elif ((subtract_polynomials == False) & (cpm.cpm_prediction is not None)):
         res = data - (cpm.cpm_prediction + cpm.const_prediction)
         plot_label = "Residual (Data - CPM)"
     
     ax4.plot(cpm.time, data, ".", color="k", label="Data", markersize=4)
     ax4.plot(cpm.time, model, ".", color="C3", label="Model", markersize=4, alpha=0.4)
-    if ((subtract_polynomials == False) & (type(cpm.cpm_prediction) != None)):
+    if (cpm.cpm_prediction is not None):
         ax4.plot(cpm.time, cpm.cpm_prediction, ".", color="C1", label="CPM", markersize=3, alpha=0.4)
         ax4.plot(cpm.time, cpm.poly_prediction, ".", color="C2", label="Poly", markersize=3, alpha=0.4)
+
+    # if ((subtract_polynomials == False) & (cpm.cpm_prediction is not None)):
+    #     ax4.plot(cpm.time, cpm.cpm_prediction, ".", color="C1", label="CPM", markersize=3, alpha=0.4)
+    #     ax4.plot(cpm.time, cpm.poly_prediction, ".", color="C2", label="Poly", markersize=3, alpha=0.4)
     
-#     ax5.plot(cpm.time, res, ".-", label="Residual (Data - Model)", markersize=7)
-    if ((subtract_polynomials == False) & (type(cpm.cpm_prediction) != None)):
-        ax5.plot(cpm.time, res, ".-", label=plot_label, markersize=7)
-    else:
-        ax5.plot(cpm.time, data - cpm.lsq_prediction, ".-", label=plot_label, markersize=7)
+    ax5.plot(cpm.time, res, ".-", label=plot_label, markersize=7)
+    # if ((subtract_polynomials == False) & (cpm.cpm_prediction is not None)):
+    #     ax5.plot(cpm.time, res, ".-", label=plot_label, markersize=7)
+    # else:
+    #     ax5.plot(cpm.time, data - cpm.lsq_prediction, ".-", label=plot_label, markersize=7)
+    for dump in cpm.dump_times:
+        ax5.axvline(dump, color="red", alpha=0.5)
     
     plt.suptitle("N={} Predictor Pixels, Method: {}, L2Reg={}".format(cpm.num_predictor_pixels,
                 cpm.method_predictor_pixels, "{:.0e}".format(cpm.cpm_regularization)), y=0.89, fontsize=15)

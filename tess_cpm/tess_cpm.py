@@ -22,9 +22,11 @@ class CPM(object):
         if remove_bad == True:
             print("Removing bad values by using the TESS provided \"QUALITY\" array")
             b = (self.quality == 0)  # The zero value entries for the quality array are the "good" values
+            self.dump_times = self.time[self.quality > 0]
             self.time = self.time[b]
             self.im_fluxes = self.im_fluxes[b]
             self.im_errors = self.im_errors[b]
+            
             
         # Calculate the vandermode matrix to add polynomial components to model
         self.org_scaled_centered_time = ((self.time - (self.time.max() + self.time.min())/2) 
@@ -80,6 +82,10 @@ class CPM(object):
         self.are_predictors_set = False
         self.trained = False
         self.over_entire_image = False
+
+        self.sigma_clipped_time = None
+        self.sigma_clipped_fluxes = None
+        self.sigma_clipped_errors = None
 
     def set_poly_model(self, time_interval, poly_terms, poly_reg):
         """Set the polynomial model parameters
@@ -212,7 +218,7 @@ class CPM(object):
         
         """
         if ((self.is_target_set  == False) or (self.is_exclusion_set == False)
-           or self.are_predictors_set == False):
+           or (self.are_predictors_set == False)):
             print("You missed a step.")
         
         self.cpm_regularization = cpm_reg
@@ -243,6 +249,10 @@ class CPM(object):
         self.lsq_prediction = np.dot(m, self.lsq_params)
         self.cpm_params = self.lsq_params[:self.num_predictor_pixels]
         self.poly_params = self.lsq_params[self.num_predictor_pixels:]
+
+        self.const_prediction = None
+        self.cpm_prediction = None
+        self.poly_prediction = None
 
         if (polynomials == True):
             self.const_prediction = self.poly_params[0]  # Constant offset
@@ -277,7 +287,7 @@ class CPM(object):
         
         return (top_n_loc, top_n_mask)
 
-    def _batch(self, cpm_reg, rows, cols, exclusion=4, exclusion_method="closest", num_predictor_pixels=128,
+    def _batch(self, cpm_reg, rows, cols, exclusion=4, exclusion_method="closest", num_predictor_pixels=256,
                         predictor_method="similar_brightness", rescale=True, polynomials=False):
         self.cpm_regularization = cpm_reg
         self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
@@ -292,7 +302,7 @@ class CPM(object):
                     self.im_predicted_fluxes[:, row, col] = self.lsq_prediction
         self.im_diff = self.rescaled_im_fluxes - self.im_predicted_fluxes
 
-    def entire_image(self, cpm_reg, exclusion=4, exclusion_method="closest", num_predictor_pixels=128,
+    def entire_image(self, cpm_reg, exclusion=4, exclusion_method="closest", num_predictor_pixels=256,
                         predictor_method="similar_brightness", rescale=True, polynomials=False):
         num_col = self.im_fluxes[0].shape[1]
         idx = np.arange(num_col**2)
@@ -302,25 +312,10 @@ class CPM(object):
         self._batch(cpm_reg, rows, cols, exclusion=exclusion, exclusion_method=exclusion_method, num_predictor_pixels=num_predictor_pixels,
                         predictor_method=predictor_method, rescale=rescale, polynomials=polynomials)
 
-        # self.cpm_regularization = cpm_reg
-        # self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
-        # num_col = self.im_fluxes[0].shape[1]
-        # for (row, col) in zip(rows, cols):
-        #     self.set_target(row, col)
-        #     self.set_exclusion(exclusion, method=exclusion_method)
-        #     self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
-        #     self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
-        #     if (polynomials == True):
-        #             self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
-        #     elif (polynomials == False):
-        #             self.im_predicted_fluxes[:, row, col] = self.lsq_prediction
-        #     # self.im_predicted_fluxes[:, row, col] = self.cpm_prediction
-        # self.im_diff = self.im_fluxes - self.im_predicted_fluxes
-
         self.over_entire_image = True
 
-    def difference_image_sap(self, cpm_reg, row, col, size, exclusion=4, exclusion_method="closest", num_predictor_pixels=128,
-                        predictor_method="similar_brightness", rescale=True, polynomials=False):
+    def difference_image_sap(self, cpm_reg, row, col, size, exclusion=10, exclusion_method="closest", num_predictor_pixels=256,
+                        predictor_method="similar_brightness", rescale=True, polynomials=True):
         """Simple Aperture Photometry for a given pixel in the difference images
         
         """
@@ -334,21 +329,26 @@ class CPM(object):
             self._batch(cpm_reg, rows, cols, exclusion=exclusion, exclusion_method=exclusion_method, num_predictor_pixels=num_predictor_pixels,
                         predictor_method=predictor_method, rescale=rescale, polynomials=polynomials)
 
-            # self.cpm_regularization = cpm_reg
-            # self.im_predicted_fluxes = np.empty(self.im_fluxes.shape)
-
-            # for (r, c) in zip(rows, cols):
-            #     self.set_target(r, c)
-            #     self.set_exclusion(exclusion, method=exclusion_method)
-            #     self.set_predictor_pixels(num_predictor_pixels, method=predictor_method)
-            #     self.lsq(cpm_reg, rescale=rescale, polynomials=polynomials)
-            #     if (polynomials == True):
-            #         self.im_predicted_fluxes[:, r, c] = self.cpm_prediction
-            #     elif (polynomials == False):
-            #         self.im_predicted_fluxes[:, r, c] = self.lsq_prediction
-            # self.im_diff = self.im_fluxes - self.im_predicted_fluxes
-
         aperture = self.im_diff[:, max(0, row-size):min(row+size+1, self.im_diff.shape[1]), 
                             max(0, col-size):min(col+size+1, self.im_diff.shape[1])]
         aperture_lc = np.sum(aperture, axis=(1, 2))
         return aperture, aperture_lc
+
+    def sigma_clip(self, sigma=3, iterations=3, subtract_polynomials=False):
+        if subtract_polynomials == True:
+            model = self.lsq_prediction
+        else:
+            model = self.cpm_prediction + self.const_prediction
+
+        time = self.time
+        diff = self.rescaled_target_fluxes - model
+        for i in range(iterations):
+            sigma_boundary = sigma*np.sqrt(np.sum(np.abs(diff)**2) / diff.shape[0])
+            b = np.abs(diff) < sigma_boundary
+            print("Iteration {}: Removing {} data points".format(i+1, np.size(b) - np.count_nonzero(b)))
+            time = time[b]
+            diff = diff[b]
+        self.sigma_clipped_time = time
+        self.sigma_clipped_fluxes = diff
+
+
