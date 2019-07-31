@@ -68,7 +68,6 @@ def summary_plot(cpm, n, subtract_polynomials=False, save=False):
     ax3.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
     ax3.imshow(top_n_mask, origin="lower", cmap="Set1")
     
-    # data = cpm.target_fluxes
     data = cpm.rescaled_target_fluxes
     model = cpm.lsq_prediction
     if ((subtract_polynomials == True) or ((subtract_polynomials == False) & (cpm.cpm_prediction is None))):
@@ -80,19 +79,16 @@ def summary_plot(cpm, n, subtract_polynomials=False, save=False):
     
     ax4.plot(cpm.time, data, ".", color="k", label="Data", markersize=4)
     ax4.plot(cpm.time, model, ".", color="C3", label="Model", markersize=4, alpha=0.4)
+
+    if cpm.valid is not None:
+        ax4.plot(cpm.time[~cpm.valid], data[~cpm.valid], "x", color="gray", label="Clipped")
+
     if (cpm.cpm_prediction is not None):
         ax4.plot(cpm.time, cpm.cpm_prediction, ".", color="C1", label="CPM", markersize=3, alpha=0.4)
         ax4.plot(cpm.time, cpm.poly_prediction, ".", color="C2", label="Poly", markersize=3, alpha=0.4)
-
-    # if ((subtract_polynomials == False) & (cpm.cpm_prediction is not None)):
-    #     ax4.plot(cpm.time, cpm.cpm_prediction, ".", color="C1", label="CPM", markersize=3, alpha=0.4)
-    #     ax4.plot(cpm.time, cpm.poly_prediction, ".", color="C2", label="Poly", markersize=3, alpha=0.4)
     
+
     ax5.plot(cpm.time, res, ".-", label=plot_label, markersize=7)
-    # if ((subtract_polynomials == False) & (cpm.cpm_prediction is not None)):
-    #     ax5.plot(cpm.time, res, ".-", label=plot_label, markersize=7)
-    # else:
-    #     ax5.plot(cpm.time, data - cpm.lsq_prediction, ".-", label=plot_label, markersize=7)
     for dump in cpm.dump_times:
         ax5.axvline(dump, color="red", alpha=0.5)
     

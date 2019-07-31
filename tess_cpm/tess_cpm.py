@@ -3,10 +3,13 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from scipy.optimize import minimize
 
+from .utils import summary_plot
+
 class CPM(object):
     """
     """
     def __init__(self, fits_file, remove_bad="True"):
+        self.file_path = fits_file
         self.file_name = fits_file.split("/")[-1]  # Should I really keep this here?
         with fits.open(fits_file, mode="readonly") as hdulist:
             self.time = hdulist[1].data["TIME"]
@@ -20,24 +23,27 @@ class CPM(object):
             
         # If remove_bad is set to True, we'll remove the values with a nonzero entry in the quality array
         if remove_bad == True:
-            print("Removing bad values by using the TESS provided \"QUALITY\" array")
-            b = (self.quality == 0)  # The zero value entries for the quality array are the "good" values
+            good = (self.quality == 0)  # The zero value entries for the quality array are the "good" values
+            print("Removing {} bad values by using the TESS provided \"QUALITY\" array".format(np.sum(~good)))
             self.dump_times = self.time[self.quality > 0]
-            self.time = self.time[b]
-            self.im_fluxes = self.im_fluxes[b]
-            self.im_errors = self.im_errors[b]
+            self.time = self.time[good]
+            self.im_fluxes = self.im_fluxes[good]
+            self.im_errors = self.im_errors[good]
+
+        # We're going to precompute the pixel lightcurve medians since it's used to set the predictor pixels
+        # but never has to be recomputed
+        self.pixel_medians = np.median(self.im_fluxes, axis=0)
+        self.flattened_pixel_medians = self.pixel_medians.reshape(self.im_fluxes[0].shape[0]**2)
+
+        self.rescaled_im_fluxes = (self.im_fluxes/self.pixel_medians) - 1
+
+        # self.time = None
+        # self.im_fluxes = None
+        # self.im_errors = None
+        # self.rescaled_im_fluxes = None
+
+        # self._set_current_data(self.orig_time, self.orig_im_fluxes, self.orig_im_errors)
             
-            
-        # Calculate the vandermode matrix to add polynomial components to model
-        self.org_scaled_centered_time = ((self.time - (self.time.max() + self.time.min())/2) 
-                                    / (self.time.max() - self.time.min()))
-        self.scaled_centered_time = None
-        # self.v_matrix = np.vander(self.scaled_centered_time, N=4, increasing=True)
-        self.poly_terms = None
-        self.v_matrix = None
-        self.poly_reg = None
-        # self.poly_reg_arr = None
-        
         self.target_row = None
         self.target_col = None
         self.target_fluxes = None
@@ -47,15 +53,11 @@ class CPM(object):
         self.rescaled_target_errors = None
         self.target_pixel_mask = None
         
+        self.exclusion = None
         self.excluded_pixels_mask = None
         
-        # We're going to precompute the pixel lightcurve medians since it's used to set the predictor pixels
-        # but never has to be recomputed
-        self.pixel_medians = np.median(self.im_fluxes, axis=0)
-        self.flattened_pixel_medians = self.pixel_medians.reshape(self.im_fluxes[0].shape[0]**2)
-        
         # We'll precompute the rescaled values for the fluxes (F* = F/M - 1)
-        self.rescaled_im_fluxes = (self.im_fluxes/self.pixel_medians) - 1
+        # self.rescaled_im_fluxes = (self.im_fluxes/self.pixel_medians) - 1
         
         self.method_predictor_pixels = None
         self.num_predictor_pixels = None
@@ -64,11 +66,15 @@ class CPM(object):
         self.predictor_pixels_fluxes = None
         self.rescaled_predictor_pixels_fluxes = None
         
+        self.rescale = None
+        self.polynomials = None
         self.fit = None
         self.cpm_regularization = None
         self.lsq_params = None
         self.cpm_params = None
         self.poly_params = None
+        self.orig_m = None
+        self.m = None
 
         self.const_prediction = None
         self.cpm_prediction = None
@@ -83,15 +89,42 @@ class CPM(object):
         self.trained = False
         self.over_entire_image = False
 
-        self.sigma_clipped_time = None
-        self.sigma_clipped_fluxes = None
-        self.sigma_clipped_errors = None
+        self.valid = None
+        # self.sigma_clipped_time = None
+        # self.sigma_clipped_fluxes = None
+        # self.sigma_clipped_errors = None
+
+        # self.current_time = None
+        # self.current_im_fluxes = None
+        # self.current_im_errors = None
+        # self.current_scaled_centered_time = None
+
+        # Calculate the vandermode matrix to add polynomial components to model
+        # self.current_scaled_centered_time = ((self.current_time - (self.current_time.max() + self.current_time.min())/2) 
+        #                             / (self.current_time.max() - self.current_time.min()))
+        self.centered_time = None
+        self.scaled_centered_time = None
+        self.time_interval = None
+        # self.v_matrix = np.vander(self.scaled_centered_time, N=4, increasing=True)
+        self.poly_terms = None
+        self.v_matrix = None
+        self.poly_reg = None
+        # self.poly_reg_arr = None
+
+    # def _set_current_data(self, current_time, current_im_fluxes, current_im_errors):
+    #     self.time = current_time
+    #     self.im_fluxes = current_im_fluxes
+    #     self.im_errors = current_im_errors
+    #     self.rescaled_im_fluxes = (self.im_fluxes/self.pixel_medians) - 1
 
     def set_poly_model(self, time_interval, poly_terms, poly_reg):
         """Set the polynomial model parameters
         
         """
-        self.scaled_centered_time = time_interval*self.org_scaled_centered_time
+        self.time_interval = time_interval
+        self.centered_time = ((self.time - (self.time.max() + self.time.min())/2)
+                                     / (self.time.max() - self.time.min()))
+        self.scaled_centered_time = time_interval*self.centered_time
         self.poly_terms = poly_terms
         self.v_matrix = np.vander(self.scaled_centered_time, N=poly_terms, increasing=True)
         self.poly_reg = poly_reg
@@ -103,6 +136,7 @@ class CPM(object):
         self.target_fluxes = self.im_fluxes[:, target_row, target_col]  # target pixel lightcurve
         self.target_errors = self.im_errors[:, target_row, target_col]  # target pixel errors
         self.target_median = np.median(self.target_fluxes)
+        print("Target Median is: {}".format(self.target_median))
         self.rescaled_target_fluxes = self.rescaled_im_fluxes[:, target_row, target_col]
         self.rescaled_target_errors = self.target_errors / self.target_median
         
@@ -119,6 +153,7 @@ class CPM(object):
         
         r = self.target_row  # just to reduce verbosity for this function
         c = self.target_col
+        self.exclusion = exclusion
         exc = exclusion
         im_side_length = self.im_fluxes.shape[1]  # for convenience
         
@@ -176,8 +211,8 @@ class CPM(object):
         
         self.are_predictors_set = True
 
-    def set_target_exclusion_predictors(self, target_row, target_col, exclusion=4, exclusion_method="closest",
-                                       num_predictor_pixels=128, predictor_method="similar_brightness", seed=None):
+    def set_target_exclusion_predictors(self, target_row, target_col, exclusion=10, exclusion_method="closest",
+                                       num_predictor_pixels=256, predictor_method="similar_brightness", seed=None):
         """Convenience function that simply calls the set_target, set_exclusion, set_predictor_pixels functions sequentially"""
         self.set_target(target_row, target_col)
         self.set_exclusion(exclusion, method=exclusion_method)
@@ -201,7 +236,7 @@ class CPM(object):
         
         self.trained = True
         
-    def lsq(self, cpm_reg, rescale=True, polynomials=False):
+    def lsq(self, cpm_reg, rescale=True, polynomials=False, updated_y=None, updated_m=None):
         """Perform linear least squares with L2-regularization to find the coefficients for the model
 
         .. note:: Although we have the flux errors, we chose not to include them (i.e. not do weighted least squares)
@@ -215,6 +250,8 @@ class CPM(object):
                         when performing least squares. The default is ``True`` and is recommended for numerical stability.
             polynomials (Optional[boolean]): Choose whether to include a set of polynomials (1, t, t^2, t^3)
                         as model components. The default is ``False``.
+            updated_y (Optional[array]): Manually pass the target fluxes to use
+            updated_m (Optionam[array]): Manually pass the design matrix to use 
         
         """
         if ((self.is_target_set  == False) or (self.is_exclusion_set == False)
@@ -223,30 +260,49 @@ class CPM(object):
         
         self.cpm_regularization = cpm_reg
         num_components = self.num_predictor_pixels
-        
-        if (rescale == False):
-            print("Calculating parameters using unscaled values.")
-            y = self.target_fluxes
-            m = self.predictor_pixels_fluxes  # Shape is (num of measurements, num of predictors)
-            l = cpm_reg*np.identity(num_components)
-        
-        elif (rescale == True):
-            y = self.rescaled_target_fluxes
-            m = self.rescaled_predictor_pixels_fluxes
-            l = cpm_reg*np.identity(num_components)
+        self.rescale = rescale
+        self.polynomials = polynomials
+
+        if (updated_y is None) & (updated_m is None):
+            if (rescale == False):
+                print("Calculating parameters using unscaled values.")
+                y = self.target_fluxes
+                m = self.predictor_pixels_fluxes  # Shape is (num of measurements, num of predictors)
+                l = cpm_reg*np.identity(num_components)
             
+            elif (rescale == True):
+                y = self.rescaled_target_fluxes
+                m = self.rescaled_predictor_pixels_fluxes
+                l = cpm_reg*np.identity(num_components)
+
+        else:
+            # print("Values are being updated")
+            y = updated_y
+            m = updated_m
+    
         if (polynomials == True):
-            m = np.hstack((m, self.v_matrix))
+            if (updated_m is None):
+                m = np.hstack((m, self.v_matrix))
+            # print("Final Design Matrix Shape: {}".format(m.shape))
             num_components = num_components + self.v_matrix.shape[1]
             l = np.hstack((np.repeat(cpm_reg, self.num_predictor_pixels),
                             np.repeat(self.poly_reg, self.poly_terms)))*np.identity(num_components)
+
+
+
+        if (self.trained == False):  # if it's the first time being called, store the original design matrix
+            self.orig_m = m
+        self.m = m
             
         # l = reg*np.identity(num_components)
         a = np.dot(m.T, m) + l
         b = np.dot(m.T, y)
         
         self.lsq_params = np.linalg.solve(a, b)
-        self.lsq_prediction = np.dot(m, self.lsq_params)
+        # self.lsq_prediction = np.dot(m, self.lsq_params)
+
+        self.lsq_prediction = np.dot(self.orig_m, self.lsq_params)
+
         self.cpm_params = self.lsq_params[:self.num_predictor_pixels]
         self.poly_params = self.lsq_params[self.num_predictor_pixels:]
 
@@ -256,8 +312,11 @@ class CPM(object):
 
         if (polynomials == True):
             self.const_prediction = self.poly_params[0]  # Constant offset
-            self.cpm_prediction = np.dot(m[:, :self.num_predictor_pixels], self.cpm_params)
-            self.poly_prediction = np.dot(m[:, self.num_predictor_pixels:], self.poly_params) - self.const_prediction
+            # self.cpm_prediction = np.dot(m[:, :self.num_predictor_pixels], self.cpm_params)
+            # self.poly_prediction = np.dot(m[:, self.num_predictor_pixels:], self.poly_params) - self.const_prediction
+
+            self.cpm_prediction = np.dot(self.orig_m[:, :self.num_predictor_pixels], self.cpm_params)
+            self.poly_prediction = np.dot(self.orig_m[:, self.num_predictor_pixels:], self.poly_params) - self.const_prediction
         
         # if (rescale == True):
         #     self.lsq_prediction = np.median(self.target_fluxes)*(self.lsq_prediction + 1)
@@ -334,21 +393,88 @@ class CPM(object):
         aperture_lc = np.sum(aperture, axis=(1, 2))
         return aperture, aperture_lc
 
-    def sigma_clip(self, sigma=3, iterations=3, subtract_polynomials=False):
-        if subtract_polynomials == True:
-            model = self.lsq_prediction
-        else:
-            model = self.cpm_prediction + self.const_prediction
+    def sigma_clip_process(self, sigma=5, subtract_polynomials=False):
+        
+        valid = np.full(self.time.shape[0], True)
+        total_clipped_counter = 0
+        prev_clipped_counter = 0
+        iter_num = 1
+        while True:
+            if subtract_polynomials == True:
+                model = self.lsq_prediction
+            else:
+                model = self.cpm_prediction + self.const_prediction
+            diff = self.rescaled_target_fluxes - model
+            # print(np.sum(valid))
+            # print(diff[valid].shape[0])
+            sigma_boundary = sigma*np.sqrt(np.sum(np.abs(diff[valid])**2) / np.sum(valid))
+            valid[np.abs(diff) > sigma_boundary] = False
+            total_clipped_counter = np.sum(~valid)
+            cur_clipped_counter = total_clipped_counter - prev_clipped_counter
+            print("Iteration {}: Removing {} data points".format(iter_num, cur_clipped_counter))
+            if (cur_clipped_counter == 0):
+                break
+            prev_clipped_counter += cur_clipped_counter
+            iter_num += 1
+            self.valid = valid
+            # pre_par = self.lsq_params
+            self._rerun()
+            # post_par = self.lsq_params
+            # print("This better be false: {}".format(np.all(pre_par == post_par)))
+            
 
-        time = self.time
-        diff = self.rescaled_target_fluxes - model
-        for i in range(iterations):
-            sigma_boundary = sigma*np.sqrt(np.sum(np.abs(diff)**2) / diff.shape[0])
-            b = np.abs(diff) < sigma_boundary
-            print("Iteration {}: Removing {} data points".format(i+1, np.size(b) - np.count_nonzero(b)))
-            time = time[b]
-            diff = diff[b]
-        self.sigma_clipped_time = time
-        self.sigma_clipped_fluxes = diff
 
+            # time_m = np.ma.array(time_m, mask=clipped_mask)
+            # # print("time_m length: {}".format(time_m.shape[0]))
+            # diff_m = np.ma.array(diff_m, mask=clipped_mask)
+            # # print("diff_m length: {}".format(diff_m.shape[0]))
+
+
+    # def sigma_clip(self, sigma=3, iterations=3, subtract_polynomials=False):
+    #     if subtract_polynomials == True:
+    #         model = self.lsq_prediction
+    #     else:
+    #         model = self.cpm_prediction + self.const_prediction
+
+    #     clipped_mask = np.zeros(self.time.shape[0])
+    #     time_m = np.ma.array(self.time, mask=clipped_mask)
+    #     diff = self.rescaled_target_fluxes - model
+    #     diff_m = np.ma.array(diff, mask=clipped_mask)
+    #     for i in range(iterations):
+    #         sigma_boundary = sigma*np.sqrt(np.sum(np.abs(diff_m)**2) / np.count_nonzero(clipped_mask==0))
+    #         # print(sigma_boundary)
+    #         clipped_mask = np.abs(diff_m) > sigma_boundary  # clipped points
+    #         print("Iteration {}: Removing {} data points".format(i+1, np.sum(clipped_mask)))
+    #         time_m = np.ma.array(time_m, mask=clipped_mask)
+    #         # print("time_m length: {}".format(time_m.shape[0]))
+    #         diff_m = np.ma.array(diff_m, mask=clipped_mask)
+    #         # print("diff_m length: {}".format(diff_m.shape[0]))
+        
+    #     self.clipped = clipped_mask
+    #     # clipped_time = self.time[~self.clipped]
+    #     # clipped_im_fluxes = self.im_fluxes[~self.clipped]
+    #     # clipped_im_errors = self.im_errors[~self.clipped]
+
+    #     # self._set_current_data(clipped_time, clipped_im_fluxes, clipped_im_errors)
+    #     self._rerun()
+    #         # self.sigma_clipped_time = self.time[~self.clipped]
+    #         # self.sigma_clipped_fluxes = diff[~self.clipped]
+    #     # self._update()
+    #         # summary_plot(self, 20, subtract_polynomials=False)
+
+    #     # self.clipped = clipped_mask
+        
+    def _rerun(self):
+        # self.set_poly_model(self.time_interval, self.poly_terms, self.poly_reg)
+        updated_y = self.rescaled_target_fluxes[self.valid]
+        # print("updated_y shape: {}".format(updated_y.shape))
+        updated_m = self.orig_m[self.valid, :]
+        # print("updated_m shape: {}".format(updated_m.shape))
+        # self.set_target_exclusion_predictors(self.target_row, self.target_col)
+        self.lsq(self.cpm_regularization, self.rescale, self.polynomials, updated_y, updated_m)
+
+    def _reset(self):
+        self.__init__(self.file_path)
+
+        
 
