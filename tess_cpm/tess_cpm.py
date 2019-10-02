@@ -20,22 +20,27 @@ class CPM(object):
                 self.wcs_info = WCS(hdulist[2].header)
             except:
                 print("WCS Info could not be retrieved")
-            
+        
+        self.dump_times = self.time[self.quality > 0]
         # If remove_bad is set to True, we'll remove the values with a nonzero entry in the quality array
         if remove_bad == True:
             good = (self.quality == 0)  # The zero value entries for the quality array are the "good" values
             print("Removing {} bad values by using the TESS provided \"QUALITY\" array".format(np.sum(~good)))
-            self.dump_times = self.time[self.quality > 0]
+            # self.dump_times = self.time[self.quality > 0]
             self.time = self.time[good]
             self.im_fluxes = self.im_fluxes[good]
             self.im_errors = self.im_errors[good]
 
         # We're going to precompute the pixel lightcurve medians since it's used to set the predictor pixels
         # but never has to be recomputed
-        self.pixel_medians = np.median(self.im_fluxes, axis=0)
+
+        # self.pixel_medians = np.median(self.im_fluxes, axis=0)
+        self.pixel_medians = np.nanmedian(self.im_fluxes, axis=0)
+
         self.flattened_pixel_medians = self.pixel_medians.reshape(self.im_fluxes[0].shape[0]**2)
 
         self.rescaled_im_fluxes = (self.im_fluxes/self.pixel_medians) - 1
+        self.flattened_rescaled_im_fluxes = self.rescaled_im_fluxes.reshape(self.time.shape[0], self.rescaled_im_fluxes[0].shape[0]**2)
 
         # self.time = None
         # self.im_fluxes = None
@@ -136,7 +141,7 @@ class CPM(object):
         self.target_fluxes = self.im_fluxes[:, target_row, target_col]  # target pixel lightcurve
         self.target_errors = self.im_errors[:, target_row, target_col]  # target pixel errors
         self.target_median = np.median(self.target_fluxes)
-        print("Target Median is: {}".format(self.target_median))
+        # print("Target Median is: {}".format(self.target_median))
         self.rescaled_target_fluxes = self.rescaled_im_fluxes[:, target_row, target_col]
         self.rescaled_target_errors = self.target_errors / self.target_median
         
@@ -198,6 +203,16 @@ class CPM(object):
             possible_pixel_medians = self.flattened_pixel_medians[self.excluded_pixels_mask.mask.ravel()]
             diff = (np.abs(possible_pixel_medians - self.target_median))
             chosen_idx = possible_idx[np.argsort(diff)[0:self.num_predictor_pixels]]
+
+        if method == "dot_product":
+            possible_rescaled_im_fluxes = self.flattened_rescaled_im_fluxes[:,self.excluded_pixels_mask.mask.ravel()]
+            # print(possible_rescaled_im_fluxes.shape)
+            # norm_target = np.linalg.norm(self.rescaled_target_fluxes)
+            dot_products = (np.dot(possible_rescaled_im_fluxes.T, self.rescaled_target_fluxes) 
+                            / (np.linalg.norm(possible_rescaled_im_fluxes.T, axis=1)*np.linalg.norm(self.rescaled_target_fluxes)))
+            print(dot_products)
+            chosen_idx = possible_idx[np.argsort(dot_products)[::-1][0:self.num_predictor_pixels]]
+            print(chosen_idx)
             
         self.predictor_pixels_locations = np.array([[idx // im_side_length, idx % im_side_length] 
                                                    for idx in chosen_idx])
@@ -262,6 +277,7 @@ class CPM(object):
         num_components = self.num_predictor_pixels
         self.rescale = rescale
         self.polynomials = polynomials
+        l = None
 
         if (updated_y is None) & (updated_m is None):
             if (rescale == False):
@@ -279,6 +295,10 @@ class CPM(object):
             # print("Values are being updated")
             y = updated_y
             m = updated_m
+
+        # This is such a hack I need to fix this (August 2nd, 2019)
+        if l is None:
+            l = cpm_reg*np.identity(num_components)
     
         if (polynomials == True):
             if (updated_m is None):
@@ -305,6 +325,8 @@ class CPM(object):
 
         self.cpm_params = self.lsq_params[:self.num_predictor_pixels]
         self.poly_params = self.lsq_params[self.num_predictor_pixels:]
+
+        # print("poly_params", self.poly_params)
 
         self.const_prediction = None
         self.cpm_prediction = None
@@ -400,20 +422,27 @@ class CPM(object):
         prev_clipped_counter = 0
         iter_num = 1
         while True:
-            if subtract_polynomials == True:
-                model = self.lsq_prediction
-            else:
+            if ((subtract_polynomials==False) & (self.cpm_prediction is not None)):
                 model = self.cpm_prediction + self.const_prediction
+            else:
+                model = self.lsq_prediction 
+
+            # if subtract_polynomials == True:
+            #     model = self.lsq_prediction
+            # else:
+
+            #     model = self.cpm_prediction + self.const_prediction
             diff = self.rescaled_target_fluxes - model
             # print(np.sum(valid))
             # print(diff[valid].shape[0])
             sigma_boundary = sigma*np.sqrt(np.sum(np.abs(diff[valid])**2) / np.sum(valid))
+            # print(sigma_boundary)
             valid[np.abs(diff) > sigma_boundary] = False
             total_clipped_counter = np.sum(~valid)
             cur_clipped_counter = total_clipped_counter - prev_clipped_counter
-            print("Iteration {}: Removing {} data points".format(iter_num, cur_clipped_counter))
             if (cur_clipped_counter == 0):
                 break
+            print("Iteration {}: Removing {} data points".format(iter_num, cur_clipped_counter))
             prev_clipped_counter += cur_clipped_counter
             iter_num += 1
             self.valid = valid

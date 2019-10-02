@@ -53,16 +53,16 @@ def summary_plot(cpm, n, subtract_polynomials=False, save=False):
 
 #     first_image = cpm.im_fluxes[0,:,:]
     ax1.imshow(first_image, origin="lower",
-           vmin=np.percentile(first_image, 10), vmax=np.percentile(first_image, 90))
+           vmin=np.nanpercentile(first_image, 10), vmax=np.nanpercentile(first_image, 90))
     
     ax2.imshow(first_image, origin="lower",
-           vmin=np.percentile(first_image, 10), vmax=np.percentile(first_image, 90))
+           vmin=np.nanpercentile(first_image, 10), vmax=np.nanpercentile(first_image, 90))
     ax2.imshow(cpm.excluded_pixels_mask, origin="lower", cmap="Set1", alpha=0.5)
     ax2.imshow(cpm.target_pixel_mask, origin="lower", cmap="binary", alpha=1.0)
     ax2.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
     
     ax3.imshow(first_image, origin="lower",
-           vmin=np.percentile(first_image, 10), vmax=np.percentile(first_image, 90))
+           vmin=np.nanpercentile(first_image, 10), vmax=np.nanpercentile(first_image, 90))
     ax3.imshow(cpm.excluded_pixels_mask, origin="lower", cmap="Set1", alpha=0.5)
     ax3.imshow(cpm.target_pixel_mask, origin="lower", cmap="binary", alpha=1.0)
     ax3.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
