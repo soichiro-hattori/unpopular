@@ -1,7 +1,8 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
-from scipy.optimize import minimize
+from sklearn.model_selection import KFold
 
 from .utils import summary_plot
 
@@ -200,6 +201,65 @@ class CPM(object):
         self.set_exclusion(exclusion, method=exclusion_method)
         self.set_predictor_pixels(num_predictor_pixels, method=predictor_method, seed=seed)
         
+
+    def xval(self, cpm_reg, rescale=True, polynomials=False, k=10):
+        if ((self.is_target_set  == False) or (self.is_exclusion_set == False)
+           or (self.are_predictors_set == False)):
+            print("You missed a step.")
+        
+        self.cpm_regularization = cpm_reg
+        num_components = self.num_predictor_pixels
+        self.rescale = rescale
+        self.polynomials = polynomials
+        reg_matrix = cpm_reg*np.identity(num_components)
+    
+        y = self.rescaled_target_fluxes
+        m = self.rescaled_predictor_pixels_fluxes
+        self.m = m
+
+        if (polynomials == True):
+            m = np.hstack((m, self.v_matrix))
+            # print("Final Design Matrix Shape: {}".format(m.shape))
+            num_components = num_components + self.v_matrix.shape[1]
+            reg_matrix = np.hstack((np.repeat(cpm_reg, self.num_predictor_pixels),
+                            np.repeat(self.poly_reg, self.poly_terms)))*np.identity(num_components)
+
+        prediction = []
+        res = []
+        kf = KFold(k)
+        for train, test in kf.split(self.time):
+            y_train = y[train]
+            m_train = m[train, :]
+
+            y_test = y[test]
+            m_test = m[test, :]
+
+            a = np.dot(m_train.T, m_train) + reg_matrix
+            b = np.dot(m_train.T, y_train)
+        
+            self.lsq_params = np.linalg.solve(a, b)
+            self.cpm_params = self.lsq_params[:self.num_predictor_pixels]
+            self.poly_params = self.lsq_params[self.num_predictor_pixels:]
+
+            self.lsq_prediction = np.dot(m_test, self.lsq_params)
+            self.const_prediction = None
+            self.cpm_prediction = None
+            self.poly_prediction = None
+
+            if (polynomials == True):
+                self.const_prediction = self.poly_params[0]  # Constant offset
+                self.cpm_prediction = np.dot(m_test[:, :self.num_predictor_pixels], self.cpm_params)
+                self.poly_prediction = np.dot(m_test[:, self.num_predictor_pixels:], self.poly_params) - self.const_prediction
+                                
+            self.trained = True
+            prediction.append(self.lsq_prediction)
+            res.append(self.lsq_prediction)
+            self.residual = y_test - self.lsq_prediction
+            plt.plot(self.time[test], self.residual, '.-')
+
+        return (prediction, res)
+            
+
     def lsq(self, cpm_reg, rescale=True, polynomials=False, updated_y=None, updated_m=None):
         """Perform linear least squares with L2-regularization to find the coefficients for the model.
 
@@ -287,6 +347,7 @@ class CPM(object):
                 
         self.trained = True
         self.residual = self.rescaled_target_fluxes - self.lsq_prediction
+        return (self.lsq_prediction, self.residual)
 
     def get_contributing_pixels(self, number):
         """Return the n-most contributing pixels' locations and a mask to see them

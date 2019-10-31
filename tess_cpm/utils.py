@@ -27,7 +27,7 @@ def plot_lightcurves(cpm):
         axs[i].legend(fontsize=15)
     plt.show()
 
-def summary_plot(cpm, n, subtract_polynomials=False, save=False):
+def summary_plot(cpm, n=20, subtract_polynomials=False, save=False):
     """Shows a summary plot of a CPM fit to a pixel.
 
     The top row consists of three images: (left) image showing median values for each pixel,
