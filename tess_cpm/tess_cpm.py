@@ -90,6 +90,9 @@ class CPM(object):
         self.v_matrix = None
         self.poly_reg = None
 
+        self.lc_matrix = None
+        self.aperture_lc = None
+
     def set_poly_model(self, time_interval, poly_terms, poly_reg):
         """Set the polynomial model parameters 
         """
@@ -280,7 +283,6 @@ class CPM(object):
         if ((self.is_target_set  == False) or (self.is_exclusion_set == False)
            or (self.are_predictors_set == False)):
             print("You missed a step.")
-        
         self.cpm_regularization = cpm_reg
         num_components = self.num_predictor_pixels
         self.rescale = rescale
@@ -363,6 +365,49 @@ class CPM(object):
         top_n_mask = np.ma.masked_where(top_n == 0, top_n)
         
         return (top_n_loc, top_n_mask)
+
+    def get_aperture_lc(self, rows=None, cols=None, box=1, show_pixel_lc=False, show_aperture_lc=False):
+        if (rows is None) & (cols is None):
+            t_row = self.target_row
+            t_col = self.target_col
+            # rows = np.array([t_row+1, t_row, t_row-1])  # Order is flipped to match image
+            # cols = np.array([t_col-1, t_col, t_col+1])
+            # rows = np.array([t_row+2, t_row, t_row-2])  # Order is flipped to match image
+            # cols = np.array([t_col-2, t_col, t_col+2])
+            # rows = np.arange(t_row-2, t_row+3)[::-1]
+            # cols = np.arange(t_col-2, t_col+3, 1)
+            rows = np.arange(t_row - box, t_row + box + 1)[::-1]
+            cols = np.arange(t_col - box, t_col + box + 1, 1)
+
+        # rows = rows[::-1]
+        self.lc_matrix = np.zeros((rows.size, cols.size, self.time.size))
+        for row in rows:
+            for col in cols:
+                pix_cpm = CPM(self.file_path, remove_bad=True)
+                pix_cpm.set_target(row, col)
+                pix_cpm.set_exclusion(10, method='closest')
+                pix_cpm.set_predictor_pixels(256, method='cosine_similarity')
+                prediction, corrected_lc = pix_cpm.lsq(self.cpm_regularization)
+                self.lc_matrix[np.abs(row - rows[0]), col - cols[0]] = corrected_lc
+
+        self.aperture_lc = np.sum(self.lc_matrix, axis=(0, 1))
+
+        if show_pixel_lc == True:
+            fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(14, 8))
+            row_idx = np.arange(rows.size)
+            col_idx = np.arange(cols.size)
+            for row in row_idx:
+                for col in col_idx:
+                    ax = axs[row, col]
+                    ax.plot(self.time, self.lc_matrix[row, col], '.', color='black')
+                    # plt.show()
+            fig.subplots_adjust(wspace=0, hspace=0)
+
+        if show_aperture_lc == True:
+            plt.figure(figsize=(14, 8))
+            plt.plot(self.time, self.aperture_lc, '.', color='black')
+        return self.aperture_lc, self.lc_matrix
+
 
     def _batch(self, cpm_reg, rows, cols, exclusion=4, exclusion_method="closest", num_predictor_pixels=256,
                         predictor_method="similar_brightness", rescale=True, polynomials=False):
