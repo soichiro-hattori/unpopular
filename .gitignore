@@ -5,6 +5,7 @@
 *.sh
 *.mp4
 *.pyc
+*.tex
 
 
 generated_plots/
