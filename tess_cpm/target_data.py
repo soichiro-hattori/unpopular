@@ -60,3 +60,5 @@ class TargetData(object):
         self.flattened_centered_scaled_fluxes = self.centered_scaled_fluxes.reshape(
             self.time.shape[0], self.cutout_sidelength ** 2
         )
+
+        self.centered_scaled_flux_errors = self.flux_errors / self.flux_medians
