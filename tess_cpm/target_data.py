@@ -42,7 +42,7 @@ class TargetData(object):
             if verbose == True:
                 print(
                     f"Removing {np.sum(~bool_good)} bad data points "
-                    "(out of {np.size(bool_good)}) using the TESS provided QUALITY array"
+                    f"(out of {np.size(bool_good)}) using the TESS provided QUALITY array"
                 )
             self.time = self.time[bool_good]
             self.fluxes = self.fluxes[bool_good]

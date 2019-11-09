@@ -1,3 +1,3 @@
 from .tess_cpm import *
-from .targetdata import *
+from .target_data import *
 from .utils import *
