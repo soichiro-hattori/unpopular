@@ -453,8 +453,16 @@ class CPM(object):
             axes[1].plot(lc.time, lc.flux)
             cdpps[counter] = testset_cdpp
             counter += 1
-        return cdpps
+        return (cpm_regs, cdpps)
 
+    def _lsq(self, y, m, reg_matrix, mask=None):
+        if mask is not None:
+            m = m[~mask]
+            y = y[~mask]
+        a = np.dot(m.T, m) + reg_matrix
+        b = np.dot(m.T, y)
+        w = np.linalg.solve(a, b)
+        
 
 
             
