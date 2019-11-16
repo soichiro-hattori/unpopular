@@ -56,9 +56,9 @@ class TargetData(object):
             self.cutout_sidelength ** 2
         )
         # We also rescale the fluxes to be divided by the median and centered about zero
-        self.centered_scaled_fluxes = (self.fluxes / self.flux_medians) - 1
-        self.flattened_centered_scaled_fluxes = self.centered_scaled_fluxes.reshape(
+        self.normalized_fluxes = (self.fluxes / self.flux_medians) - 1
+        self.flattened_normalized_fluxes = self.normalized_fluxes.reshape(
             self.time.shape[0], self.cutout_sidelength ** 2
         )
 
-        self.centered_scaled_flux_errors = self.flux_errors / self.flux_medians
+        self.normalized_flux_errors = self.flux_errors / self.flux_medians
