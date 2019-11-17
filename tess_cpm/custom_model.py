@@ -12,7 +12,7 @@ class CustomModel(object):
 
     name = "CustomModel"
 
-    def __init__(self, target_data):
+    def __init__(self, target_data, flux=None):
         if isinstance(target_data, TargetData):
             self.target_data = target_data
             self.time = target_data.time
@@ -23,6 +23,17 @@ class CustomModel(object):
         self.reg_matrix = None
         self.params = None
         self.prediction = None
+
+        if flux is not None:
+            self.set_des_mat(flux)
+
+    def set_des_mat(self, flux):
+            if flux.size != self.time.size:
+                print("The custom model lightcurve must be the same length as the dataset.")
+                return
+            else:
+                self.m = flux.reshape((-1, 1))
+                self.num_terms = self.m.shape[1]
 
     def set_L2_reg(self, reg):
         """Set the L2-regularization for the custom model.

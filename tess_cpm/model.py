@@ -5,6 +5,7 @@ from sklearn.model_selection import KFold
 from .target_data import TargetData
 from .cpm_model import CPM
 from .poly_model import PolyModel
+from .custom_model import CustomModel
 
 
 class PixelModel(object):
@@ -22,15 +23,22 @@ class PixelModel(object):
         self.y = self.target_data.normalized_fluxes[:, row, col]
         self.cpm = None
         self.poly_model = None
+        self.custom_model = None
         self.regs = []
         self.reg_matrix = None
         self.m = None
         self.params = None
-        self.predictions = None
+        self.prediction = None
+        self.split_time = None
+        self.split_prediction = None
+        self.split_cpm_prediction = None
+        self.split_poly_model_prediction = None
+        self.split_custom_model_prediction = None
+        self.split_detrended_lc = None
 
     @property
     def models(self):
-        return list(filter(bool, [self.cpm, self.poly_model]))
+        return list(filter(bool, [self.cpm, self.poly_model, self.custom_model]))
 
     def add_cpm_model(
         self,
@@ -63,6 +71,13 @@ class PixelModel(object):
     def remove_poly_model(self):
         self.poly_model = None
 
+    def add_custom_model(self, flux):
+        custom_model = CustomModel(self.target_data, flux)
+        self.custom_model = custom_model
+    
+    def remove_custom_model(self, flux):
+        self.custom_model = None
+
     def set_regs(self, regs=[], verbose=True):
         if len(regs) != len(self.models):
             print(
@@ -91,9 +106,13 @@ class PixelModel(object):
         self.m = np.hstack((design_matrices))
 
     def fit(self, y=None, m=None, mask=None, save=True):
+        if self.regs == []:
+            print("Please set the L-2 regularizations first.")
+            return
         # self._create_reg_matrix()
         # self._create_design_matrix()
         if y is None:
+            print("Fitting using full light curve.")
             y = self.y
         if m is None:
             m = self.m
@@ -122,7 +141,7 @@ class PixelModel(object):
         if mask is None:
             mask = np.full(m.shape[0], True)
         m = m[mask]
-        prediction = np.dot(m, self.params)
+        prediction = np.dot(m, params)
         # Why does doing self.m give different results...
         # p = np.dot(self.m, self.params)
         # print(np.allclose(p, prediction))
@@ -132,6 +151,10 @@ class PixelModel(object):
         return prediction
 
     def holdout_fit(self, k=10, mask=None):
+        if self.regs == []:
+            print("Please set the L-2 regularizations first.")
+            return
+
         if mask is None:
             mask = np.full(self.time.shape, True)
         y = self.y[mask]
@@ -150,15 +173,16 @@ class PixelModel(object):
             times.append(self.time[test])
             y_tests.append(y_test)
             m_test_matrix.append(m_test)
-            params = self.fit(y_train, m_train)
+            params = self.fit(y_train, m_train, save=False)
             param_matrix[i] = params
             i += 1
         return (times, y_tests, m_test_matrix, param_matrix)
 
-    def holdout_predictions(self, k=10, mask=None):
+    def holdout_fit_predict(self, k=10, mask=None, save=True):
         times, y_tests, m_tests, param_matrix = self.holdout_fit(k, mask)
+        # cpm_predictions
         predictions = [np.dot(m, param) for m, param in zip(m_tests, param_matrix)]
-        return (times, predictions)
+        return (times, y_tests, predictions)
 
     def _get_hyperparameters(
         self, y, rescale=True, k=10, grid_size=30, transit_duration=13

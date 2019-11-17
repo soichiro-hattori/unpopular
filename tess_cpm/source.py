@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from .target_data import TargetData
+from .model import PixelModel
 from .cpm_model import CPM
 from .poly_model import PolyModel
 
@@ -13,31 +14,103 @@ class Source(object):
 
     def __init__(self, path, remove_bad=True, verbose=True):
         self.target_data = TargetData(path, remove_bad, verbose)
-        # self.aperture = np.full()
-        self.models = []
-
-    def add_cpm_model(self):
-        # self.model.append(CPM(self.target_data))
-        return
-
-    def add_poly_model(self):
-        # self.model.append(PolyModel(self.target_data))
-        return
+        self.time = self.target_data.time
+        self.aperture = None
+        self.models = None
+        self.fluxes = None
+        self.predictions = None
+        self.detrended_lcs = None
+        self.split_times = None
+        self.split_predictions = None
+        self.split_fluxes = None
+        self.split_detrended_lcs = None
 
     def set_aperture(self, aperture=None):
+        self.models = []
+        self.fluxes = []
+        apt = np.full(self.target_data.fluxes[0].shape, False)
         if aperture is None:
-            return
+            rowrange = [48, 53]
+            colrange = [48, 53]
+            print("Assuming you're interested in the central set of pixels")
+            apt[rowrange[0]:rowrange[1], colrange[0]:colrange[1]] = True
 
-    def plot_cutout(self, rowrange=None, colrange=None, l=10, h=90):
+        self.aperture = apt
+        for row in range(rowrange[0], rowrange[1]):
+            row_models = []
+            row_fluxes = []
+            for col in range(colrange[0], colrange[1]):
+                row_models.append(PixelModel(self.target_data, row, col))
+                row_fluxes.append(self.target_data.normalized_fluxes[:, row, col])
+            self.models.append(row_models)
+            self.fluxes.append(row_fluxes)
+
+    def add_cpm_model(self, exclusion_size=5,
+        exclusion_method="closest",
+        n=256,
+        predictor_method="cosine_similarity",
+        seed=None,):
+        if self.models is None:
+            print("Please set the aperture first.")
+        for row_models in self.models:
+            for model in row_models:
+                model.add_cpm_model(exclusion_size, exclusion_method, n, predictor_method, seed)
+
+    def add_poly_model(self, scale=2, num_terms=4):
+        if self.models is None:
+            print("Please set the aperture first.")
+        for row_models in self.models:
+            for model in row_models:
+                model.add_poly_model(scale, num_terms)
+
+    def add_custom_model(self, flux):
+        if self.models is None:
+            print("Please set the aperture first.")
+        for row_models in self.models:
+            for model in row_models:
+                model.add_custom_model(flux)
+
+    def set_regs(self, regs=[], verbose=False):
+        if self.models is None:
+                print("Please set the aperture first.")
+        for row_models in self.models:
+            for model in row_models:
+                model.set_regs(regs, verbose)
+
+    def holdout_fit_predict(self, k=10, mask=None):
+        # if self.models is None:
+        #     print("Please set the aperture first.")
+        predictions = []
+        fluxes = []
+        detrended_lcs = []
+        for row_models in self.models:
+            row_predictions = []
+            row_fluxes = []
+            row_detrended_lcs = []
+            for model in row_models:
+                times, flux, pred = model.holdout_fit_predict(k, mask)
+                row_fluxes.append(flux)
+                row_predictions.append(pred)
+                row_detrended_lcs.append(flux - pred)
+            fluxes.append(row_fluxes)
+            predictions.append(row_predictions)
+            detrended_lcs.append(row_detrended_lcs)
+        self.split_times = times
+        self.split_fluxes = fluxes
+        self.split_predictions = predictions
+        self.split_detrended_lcs = detrended_lcs
+        return (times, fluxes, predictions)
+
+    def plot_cutout(self, rowrange=None, colrange=None, l=10, h=90, show_aperture=False):
         if rowrange is None:
             rows = slice(0, self.target_data.cutout_sidelength)
         else:
-            rows = slice(rowrange[0], rowrange[-1])
+            rows = slice(rowrange[0], rowrange[1]-1)
 
         if colrange is None:
             cols = slice(0, self.target_data.cutout_sidelength)
         else:
-            cols = slice(colrange[0], colrange[-1])
+            cols = slice(colrange[0], colrange[1]-1)
         median_image = self.target_data.flux_medians[rows, cols]
         plt.imshow(
             median_image,
@@ -45,12 +118,81 @@ class Source(object):
             vmin=np.percentile(median_image, l),
             vmax=np.percentile(median_image, h),
         )
+        if show_aperture:
+            plt.imshow(np.ma.masked_where(self.aperture == False, self.aperture), origin='lower', cmap='binary', alpha=0.7)
 
     def plot_pixel(self, row=None, col=None, loc=None):
         """Plot the data (lightcurve) for a specified pixel.
         """
         flux = self.target_data.fluxes[:, row, col]
         plt.plot(self.target_data.time, flux, ".")
+
+    def plot_pix_by_pix(self, split=True, data_type="raw"):
+        if self.split_predictions is None:
+            self.holdout_fit_predict()
+        rows = np.arange(len(self.split_predictions))
+        cols = np.arange(len(self.split_predictions[0]))
+        fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
+        for r in rows:
+            for c in cols:
+                ax = axs[rows[-1] - r, c]  # Needed to flip the rows so that they match origin='lower' setting
+                if split:
+                    if data_type == "raw":
+                        yy = self.split_fluxes[r][c]
+                    elif data_type == "prediction":
+                        yy = self.split_predictions[r][c]
+                    elif data_type == "detrended_lc":
+                        yy = self.split_detrended_lcs[r][c]
+                    for time, y in zip(self.split_times, yy):
+                        ax.plot(time, y, '.', c='k')
+                else:
+                    if data_type == "raw":
+                        y = self.split_fluxes[r][c]
+                    elif data_type == "prediction":
+                        y = self.split_predictions[r][c]
+                    elif data_type == "detrended_lc":
+                        y = self.split_detrended_lcs[r][c]
+                    ax.plot(self.time, np.concatenate(y), '.', c='k')
+        fig.subplots_adjust(wspace=0, hspace=0)
+        plt.show()
+
+    def plot_pix_predictions(self, split=True):
+        if self.split_predictions is None:
+            self.holdout_fit_predict()
+        rows = np.arange(len(self.split_predictions))
+        cols = np.arange(len(self.split_predictions[0]))
+        fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
+        for r in rows:
+            for c in cols:
+                ax = axs[rows[-1] - r, c]
+                if split:
+                    for time, chunk in zip(self.split_times, self.split_predictions[r][c]):
+                        ax.plot(time, chunk, '.')
+                else:
+                    ax.plot(self.time, np.concatenate(self.split_predictions[r][c]), '.')
+        fig.subplots_adjust(wspace=0, hspace=0)
+        plt.show()
+
+    def plot_pix_detrended_lcs(self, split=True):
+        if self.split_predictions is None:
+            self.holdout_fit_predict()
+        rows = np.arange(len(self.split_predictions))
+        cols = np.arange(len(self.split_predictions[0]))
+        fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
+        for r in rows:
+            for c in cols:
+                ax = axs[rows[-1] - r, c]  # Needed to flip the rows so that they match origin='lower' setting
+                if split:
+                    for time, chunk in zip(self.split_times, self.split_predictions[r][c]):
+                        ax.plot(time, self.split_fluxes[r][c] - chunk, '.')
+                else:
+                    merged_prediction = np.concatenate(self.split_predictions[r][c])
+                    ax.plot(self.time, self.fluxes[r][c] - merged_prediction, label=f"({r}, {c})")
+                    ax.legend()
+        fig.subplots_adjust(wspace=0, hspace=0)
+        plt.show()
+    
+
 
     # def lsq(
     #     self, cpm_reg, rescale=True, polynomials=False, poly_reg=None, target_fluxes=None, design_matrix=None
