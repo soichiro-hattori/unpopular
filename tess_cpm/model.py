@@ -29,12 +29,16 @@ class PixelModel(object):
         self.m = None
         self.params = None
         self.prediction = None
-        self.split_time = None
-        self.split_prediction = None
-        self.split_cpm_prediction = None
-        self.split_poly_model_prediction = None
-        self.split_custom_model_prediction = None
-        self.split_detrended_lc = None
+        self.cpm_prediction = None
+        self.poly_model_prediction = None
+        self.cpm_subtracted_lc = None
+        self.split_time = []
+        self.split_fluxes = []
+        self.split_prediction = []
+        self.split_cpm_prediction = []
+        self.split_poly_model_prediction = []
+        self.split_custom_model_prediction = []
+        self.split_cpm_subtracted_lc = []
 
     @property
     def models(self):
@@ -176,36 +180,50 @@ class PixelModel(object):
             params = self.fit(y_train, m_train, save=False)
             param_matrix[i] = params
             i += 1
+        self.split_fluxes = y_tests
         return (times, y_tests, m_test_matrix, param_matrix)
 
     def holdout_fit_predict(self, k=10, mask=None, save=True):
         times, y_tests, m_tests, param_matrix = self.holdout_fit(k, mask)
-        # cpm_predictions
         predictions = [np.dot(m, param) for m, param in zip(m_tests, param_matrix)]
+        self.split_prediction = predictions
+        self.prediction = np.concatenate(predictions)
+        for m, param in zip(m_tests, param_matrix):
+            if self.cpm is not None:
+                m_cpm, param_cpm = m[:, : self.cpm.num_predictor_pixels], param[: self.cpm.num_predictor_pixels]
+                self.split_cpm_prediction.append(np.dot(m_cpm, param_cpm))
+            if self.poly_model is not None:
+                m_poly, param_poly = m[:, self.cpm.num_predictor_pixels :], param[self.cpm.num_predictor_pixels :]
+                self.split_poly_model_prediction.append(np.dot(m_poly, param_poly))
+        self.split_cpm_subtracted_lc = [y-cpm for y, cpm, in zip(self.split_fluxes, self.split_cpm_prediction)]
+        self.cpm_subtracted_lc = np.concatenate(self.split_cpm_subtracted_lc)
+        self.cpm_prediction = np.concatenate(self.split_cpm_prediction)
+        if self.poly_model is not None:
+            self.poly_model_prediction = np.concatenate(self.split_poly_model_prediction)
         return (times, y_tests, predictions)
 
-    def _get_hyperparameters(
-        self, y, rescale=True, k=10, grid_size=30, transit_duration=13
-    ):
-        """Obtain the regularization hyperparameters by performing cross validation.
+    # def _get_hyperparameters(
+    #     self, y, rescale=True, k=10, grid_size=30, transit_duration=13
+    # ):
+    #     """Obtain the regularization hyperparameters by performing cross validation.
 
-        Args:
-            y (array): The target pixel fluxes
-        """
-        print(
-            f"Performing {k}-fold cross validation to obtain regularization parameters."
-        )
+    #     Args:
+    #         y (array): The target pixel fluxes
+    #     """
+    #     print(
+    #         f"Performing {k}-fold cross validation to obtain regularization parameters."
+    #     )
 
-        kf = KFold(k)
-        counter = 0
-        cdpps = np.zeros((k, grid_size))
-        for train, test in kf.split(y):
-            print(f"{counter+1} / {k}")
-            y_train, y_test = y[train], y[test]
-            m_train, m_test = self.m[train], self.m[test]
+    #     kf = KFold(k)
+    #     counter = 0
+    #     cdpps = np.zeros((k, grid_size))
+    #     for train, test in kf.split(y):
+    #         print(f"{counter+1} / {k}")
+    #         y_train, y_test = y[train], y[test]
+    #         m_train, m_test = self.m[train], self.m[test]
 
-            if rescale:
-                return
+    #         if rescale:
+    #             return
 
-    def _get_params(self, y):
-        return
+    # def _get_params(self, y):
+    #     return

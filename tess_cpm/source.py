@@ -25,15 +25,12 @@ class Source(object):
         self.split_fluxes = None
         self.split_detrended_lcs = None
 
-    def set_aperture(self, aperture=None):
+    def set_aperture(self, rowrange=[49, 52], colrange=[49, 52]):
         self.models = []
         self.fluxes = []
         apt = np.full(self.target_data.fluxes[0].shape, False)
-        if aperture is None:
-            rowrange = [48, 53]
-            colrange = [48, 53]
-            print("Assuming you're interested in the central set of pixels")
-            apt[rowrange[0]:rowrange[1], colrange[0]:colrange[1]] = True
+        print("Assuming you're interested in the central set of pixels")
+        apt[rowrange[0]:rowrange[1], colrange[0]:colrange[1]] = True
 
         self.aperture = apt
         for row in range(rowrange[0], rowrange[1]):
@@ -91,7 +88,7 @@ class Source(object):
                 times, flux, pred = model.holdout_fit_predict(k, mask)
                 row_fluxes.append(flux)
                 row_predictions.append(pred)
-                row_detrended_lcs.append(flux - pred)
+                # row_detrended_lcs.append(flux - pred)
             fluxes.append(row_fluxes)
             predictions.append(row_predictions)
             detrended_lcs.append(row_detrended_lcs)
@@ -127,70 +124,82 @@ class Source(object):
         flux = self.target_data.fluxes[:, row, col]
         plt.plot(self.target_data.time, flux, ".")
 
-    def plot_pix_by_pix(self, split=True, data_type="raw"):
+    def plot_pix_by_pix(self, split=True, data_type="raw", figsize=(12, 8), thin=1):
         if self.split_predictions is None:
             self.holdout_fit_predict()
         rows = np.arange(len(self.split_predictions))
         cols = np.arange(len(self.split_predictions[0]))
-        fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
+        fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=figsize)
         for r in rows:
             for c in cols:
                 ax = axs[rows[-1] - r, c]  # Needed to flip the rows so that they match origin='lower' setting
                 if split:
                     if data_type == "raw":
-                        yy = self.split_fluxes[r][c]
+                        yy = self.models[r][c].split_fluxes
                     elif data_type == "prediction":
-                        yy = self.split_predictions[r][c]
-                    elif data_type == "detrended_lc":
-                        yy = self.split_detrended_lcs[r][c]
+                        yy = self.models[r][c].split_prediction
+                    elif data_type == "cpm_prediction":
+                        yy = self.models[r][c].split_cpm_prediction
+                    elif data_type == "poly_model_prediction":
+                        yy = self.models[r][c].split_poly_model_prediction
+                    # elif data_type == "detrended_lc":
+                    #     yy = self.models[r][c].split_detrended_lcs
+                    elif data_type == "cpm_subtracted_lc":
+                        yy = self.models[r][c].split_cpm_subtracted_lc
                     for time, y in zip(self.split_times, yy):
-                        ax.plot(time, y, '.', c='k')
+                        ax.plot(time[::thin], y[::thin], '.')
                 else:
                     if data_type == "raw":
-                        y = self.split_fluxes[r][c]
+                        y = self.models[r][c].y
                     elif data_type == "prediction":
-                        y = self.split_predictions[r][c]
-                    elif data_type == "detrended_lc":
-                        y = self.split_detrended_lcs[r][c]
-                    ax.plot(self.time, np.concatenate(y), '.', c='k')
+                        y = self.models[r][c].prediction
+                    elif data_type == "cpm_prediction":
+                        y = self.models[r][c].cpm_prediction
+                    elif data_type == "poly_model_prediction":
+                        y = self.models[r][c].poly_model_prediction
+                    elif data_type == "cpm_subtracted_lc":
+                        y = self.models[r][c].cpm_subtracted_lc
+                    # elif data_type == "detrended_lc":
+                    #     y = np.concatenate(self.models[r][c].split_detrended_lcs)
+                    ax.plot(self.time[::thin], y[::thin], '.', c='k')
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
 
-    def plot_pix_predictions(self, split=True):
-        if self.split_predictions is None:
-            self.holdout_fit_predict()
-        rows = np.arange(len(self.split_predictions))
-        cols = np.arange(len(self.split_predictions[0]))
-        fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
-        for r in rows:
-            for c in cols:
-                ax = axs[rows[-1] - r, c]
-                if split:
-                    for time, chunk in zip(self.split_times, self.split_predictions[r][c]):
-                        ax.plot(time, chunk, '.')
-                else:
-                    ax.plot(self.time, np.concatenate(self.split_predictions[r][c]), '.')
-        fig.subplots_adjust(wspace=0, hspace=0)
-        plt.show()
+    # def plot_pix_predictions(self, split=True):
+    #     if self.split_predictions is None:
+    #         self.holdout_fit_predict()
+    #     rows = np.arange(len(self.split_predictions))
+    #     cols = np.arange(len(self.split_predictions[0]))
+    #     fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
+    #     for r in rows:
+    #         for c in cols:
+    #             ax = axs[rows[-1] - r, c]
+    #             if split:
+    #                 for time, chunk in zip(self.split_times, self.split_predictions[r][c]):
+    #                     ax.plot(time, chunk, '.')
+    #             else:
+    #                 ax.plot(self.time, np.concatenate(self.split_predictions[r][c]), '.')
+    #     fig.subplots_adjust(wspace=0, hspace=0)
+    #     plt.show()
 
-    def plot_pix_detrended_lcs(self, split=True):
-        if self.split_predictions is None:
-            self.holdout_fit_predict()
-        rows = np.arange(len(self.split_predictions))
-        cols = np.arange(len(self.split_predictions[0]))
-        fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
-        for r in rows:
-            for c in cols:
-                ax = axs[rows[-1] - r, c]  # Needed to flip the rows so that they match origin='lower' setting
-                if split:
-                    for time, chunk in zip(self.split_times, self.split_predictions[r][c]):
-                        ax.plot(time, self.split_fluxes[r][c] - chunk, '.')
-                else:
-                    merged_prediction = np.concatenate(self.split_predictions[r][c])
-                    ax.plot(self.time, self.fluxes[r][c] - merged_prediction, label=f"({r}, {c})")
-                    ax.legend()
-        fig.subplots_adjust(wspace=0, hspace=0)
-        plt.show()
+    # def plot_pix_detrended_lcs(self, split=True):
+    #     if self.split_predictions is None:
+    #         self.holdout_fit_predict()
+    #     rows = np.arange(len(self.split_predictions))
+    #     cols = np.arange(len(self.split_predictions[0]))
+    #     fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=(12, 8))
+    #     for r in rows:
+    #         for c in cols:
+    #             ax = axs[rows[-1] - r, c]  # Needed to flip the rows so that they match origin='lower' setting
+    #             if split:
+    #                 for time, chunk in zip(self.split_times, self.split_predictions[r][c]):
+    #                     ax.plot(time, self.split_fluxes[r][c] - chunk, '.')
+    #             else:
+    #                 merged_prediction = np.concatenate(self.split_predictions[r][c])
+    #                 ax.plot(self.time, self.fluxes[r][c] - merged_prediction, label=f"({r}, {c})")
+    #                 ax.legend()
+    #     fig.subplots_adjust(wspace=0, hspace=0)
+    #     plt.show()
     
 
 
