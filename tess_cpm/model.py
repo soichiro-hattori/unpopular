@@ -21,6 +21,7 @@ class PixelModel(object):
         self.col = col
         self.time = self.target_data.time
         self.y = self.target_data.normalized_fluxes[:, row, col]
+        self.median = self.target_data.flux_medians[row, col]
         self.cpm = None
         self.poly_model = None
         self.custom_model = None
@@ -32,6 +33,7 @@ class PixelModel(object):
         self.cpm_prediction = None
         self.poly_model_prediction = None
         self.cpm_subtracted_lc = None
+        self.rescaled_cpm_subtracted_lc = None
         self.split_time = []
         self.split_fluxes = []
         self.split_prediction = []
@@ -39,6 +41,7 @@ class PixelModel(object):
         self.split_poly_model_prediction = []
         self.split_custom_model_prediction = []
         self.split_cpm_subtracted_lc = []
+        self.split_rescaled_cpm_subtracted_lc = []
 
     @property
     def models(self):
@@ -119,6 +122,7 @@ class PixelModel(object):
             print("Fitting using full light curve.")
             y = self.y
         if m is None:
+            print("Fitting using full light curve.")
             m = self.m
         if mask is None:
             mask = np.full(y.shape, True)
@@ -180,10 +184,12 @@ class PixelModel(object):
             params = self.fit(y_train, m_train, save=False)
             param_matrix[i] = params
             i += 1
+        self.split_time = times
         self.split_fluxes = y_tests
         return (times, y_tests, m_test_matrix, param_matrix)
 
     def holdout_fit_predict(self, k=10, mask=None, save=True):
+        self._reset_values()
         times, y_tests, m_tests, param_matrix = self.holdout_fit(k, mask)
         predictions = [np.dot(m, param) for m, param in zip(m_tests, param_matrix)]
         self.split_prediction = predictions
@@ -195,12 +201,27 @@ class PixelModel(object):
             if self.poly_model is not None:
                 m_poly, param_poly = m[:, self.cpm.num_predictor_pixels :], param[self.cpm.num_predictor_pixels :]
                 self.split_poly_model_prediction.append(np.dot(m_poly, param_poly))
-        self.split_cpm_subtracted_lc = [y-cpm for y, cpm, in zip(self.split_fluxes, self.split_cpm_prediction)]
+        self.split_cpm_subtracted_lc = [y-cpm for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]
         self.cpm_subtracted_lc = np.concatenate(self.split_cpm_subtracted_lc)
         self.cpm_prediction = np.concatenate(self.split_cpm_prediction)
         if self.poly_model is not None:
             self.poly_model_prediction = np.concatenate(self.split_poly_model_prediction)
         return (times, y_tests, predictions)
+
+    def _reset_values(self):
+        self.split_time = []
+        self.split_fluxes = []
+        self.split_prediction = []
+        self.split_cpm_prediction = []
+        self.split_poly_model_prediction = []
+        self.split_custom_model_prediction = []
+        self.split_cpm_subtracted_lc = []
+
+    def rescale(self):
+        self.split_rescaled_cpm_subtracted_lc = [(lc + 1) * self.median for lc in self.split_cpm_subtracted_lc]
+        self.rescaled_cpm_subtracted_lc = (self.cpm_subtracted_lc + 1) * self.median
+
+
 
     # def _get_hyperparameters(
     #     self, y, rescale=True, k=10, grid_size=30, transit_duration=13
