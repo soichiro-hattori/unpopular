@@ -112,7 +112,7 @@ class PixelModel(object):
             design_matrices.append(mod.m)
         self.m = np.hstack((design_matrices))
 
-    def fit(self, y=None, m=None, mask=None, save=True):
+    def fit(self, y=None, m=None, mask=None, save=True, verbose=True):
         if self.regs == []:
             print("Please set the L-2 regularizations first.")
             return
@@ -126,6 +126,8 @@ class PixelModel(object):
             m = self.m
         if mask is None:
             mask = np.full(y.shape, True)
+        elif mask is not None and verbose:
+            print(f"Using user-provided mask. Clipping {np.sum(~mask)} points.")
         y = y[mask]
         m = m[mask]
 
@@ -158,15 +160,19 @@ class PixelModel(object):
             self.prediction = prediction
         return prediction
 
-    def holdout_fit(self, k=10, mask=None):
+    def holdout_fit(self, k=10, mask=None, verbose=True):
         if self.regs == []:
             print("Please set the L-2 regularizations first.")
             return
 
         if mask is None:
             mask = np.full(self.time.shape, True)
-        y = self.y[mask]
-        m = self.m[mask]
+        # time = self.time[mask]
+        # y = self.y[mask]
+        # m = self.m[mask]
+        time = self.time
+        y = self.y
+        m = self.m
 
         times = []
         y_tests = []
@@ -178,19 +184,20 @@ class PixelModel(object):
         for train, test in kf.split(y):
             y_train, y_test = y[train], y[test]
             m_train, m_test = m[train], m[test]
-            times.append(self.time[test])
+            mask_train = mask[train]
+            times.append(time[test])
             y_tests.append(y_test)
             m_test_matrix.append(m_test)
-            params = self.fit(y_train, m_train, save=False)
+            params = self.fit(y_train, m_train, mask=mask_train, save=False, verbose=verbose)
             param_matrix[i] = params
             i += 1
         self.split_time = times
         self.split_fluxes = y_tests
         return (times, y_tests, m_test_matrix, param_matrix)
 
-    def holdout_fit_predict(self, k=10, mask=None, save=True):
+    def holdout_fit_predict(self, k=10, mask=None, save=True, verbose=False):
         self._reset_values()
-        times, y_tests, m_tests, param_matrix = self.holdout_fit(k, mask)
+        times, y_tests, m_tests, param_matrix = self.holdout_fit(k, mask, verbose=verbose)
         predictions = [np.dot(m, param) for m, param in zip(m_tests, param_matrix)]
         self.split_prediction = predictions
         self.prediction = np.concatenate(predictions)

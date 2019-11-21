@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import lightkurve as lc
 
 from .target_data import TargetData
 from .model import PixelModel
@@ -46,7 +47,7 @@ class Source(object):
         exclusion_method="closest",
         n=256,
         predictor_method="cosine_similarity",
-        seed=None,):
+        seed=None):
         if self.models is None:
             print("Please set the aperture first.")
         for row_models in self.models:
@@ -97,7 +98,7 @@ class Source(object):
         for row_models in self.models:
             row_predictions = []
             row_fluxes = []
-            row_detrended_lcs = []
+            # row_detrended_lcs = []
             for model in row_models:
                 times, flux, pred = model.holdout_fit_predict(k, mask)
                 row_fluxes.append(flux)
@@ -105,7 +106,7 @@ class Source(object):
                 # row_detrended_lcs.append(flux - pred)
             fluxes.append(row_fluxes)
             predictions.append(row_predictions)
-            detrended_lcs.append(row_detrended_lcs)
+            # detrended_lcs.append(row_detrended_lcs)
         self.split_times = times
         self.split_fluxes = fluxes
         self.split_predictions = predictions
@@ -172,6 +173,8 @@ class Source(object):
                     #     yy = self.models[r][c].split_detrended_lcs
                     elif data_type == "cpm_subtracted_lc":
                         yy = self.models[r][c].split_cpm_subtracted_lc
+                    elif data_type == "rescaled_cpm_subtracted_lc":
+                        yy = self.models[r][c].rescaled_cpm_subtracted_lc
                     for time, y in zip(self.split_times, yy):
                         ax.plot(time[::thin], y[::thin], '.')
                 else:
@@ -185,6 +188,8 @@ class Source(object):
                         y = self.models[r][c].poly_model_prediction
                     elif data_type == "cpm_subtracted_lc":
                         y = self.models[r][c].cpm_subtracted_lc
+                    elif data_type == "rescaled_cpm_subtracted_lc":
+                        y = self.models[r][c].rescaled_cpm_subtracted_lc
                     # elif data_type == "detrended_lc":
                     #     y = np.concatenate(self.models[r][c].split_detrended_lcs)
                     ax.plot(self.time[::thin], y[::thin], '.', c='k')
@@ -238,6 +243,43 @@ class Source(object):
                     # elif data_type == "detrended_lc":
                     #     y = np.concatenate(self.models[r][c].split_detrended_lcs)
         return aperture_lc
+
+    def _calc_cdpp(self, flux, **kwargs):
+        return lc.TessLightCurve(flux=flux).estimate_cdpp(**kwargs)
+
+    def calc_min_cpm_reg(self, cpm_regs, k, **kwargs):
+        cdpps = np.zeros((cpm_regs.size, k))
+        for idx, reg in enumerate(cpm_regs):
+            self.set_regs([reg])
+            self.holdout_fit_predict(k)
+            apt_cpm_subtracted_lc = self.get_aperture_lc(split=True, data_type="cpm_subtracted_lc", verbose=False)
+            split_cdpp = np.array([self._calc_cdpp(flux) for flux in apt_cpm_subtracted_lc])
+            cdpps[idx] = split_cdpp
+        section_avg_cdpps = np.average(cdpps, axis=1)
+        min_cpm_reg = cpm_regs[np.argmin(section_avg_cdpps)]
+        fig, axs = plt.subplots(3, 1, figsize=(18, 15))
+        for cpm_reg, cdpp in zip(cpm_regs, cdpps):
+            axs[0].plot(np.arange(k)+1, np.log(cdpp), ".--", ms=10, label=f"Reg {cpm_reg}")
+        axs[0].set_xlabel("k-th section of lightcurve", fontsize=15)
+        axs[0].set_ylabel("CDPP", fontsize=20)
+        # axs[0].set_xscale("log")
+        axs[0].set_yscale("log")
+        for idx, cdpp in enumerate(cdpps.T):
+            axs[1].plot(cpm_regs, cdpp, ".--", ms=10, label=f"Section {idx+1}")
+        axs[1].set_xlabel("CPM Regularization Values", fontsize=15)
+        axs[1].set_ylabel(r"$\log$CDPP", fontsize=20)
+        axs[1].set_xscale("log")
+        axs[1].set_yscale("log")
+        axs[1].legend()
+        axs[2].plot(np.log(cpm_regs), np.log(section_avg_cdpps), ".-")
+        axs[2].set_xlabel("CPM Regularization Values", fontsize=15)
+        axs[2].set_ylabel(r"$\log$CDPP", fontsize=20)
+        axs[2].set_xscale("log")
+        axs[2].set_yscale("log")
+        # axs[2].scatter(min_cpm_reg, section_avg_cdpps[np.where(cpm_regs == min_cpm_reg)], 
+                    # marker="X", s=100, color="r", label="Minimum CPM Reg")
+        # axs[2].legend()
+        return (min_cpm_reg, cdpps)
 
     # def lsq(
     #     self, cpm_reg, rescale=True, polynomials=False, poly_reg=None, target_fluxes=None, design_matrix=None
