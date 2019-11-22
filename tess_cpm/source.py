@@ -245,7 +245,7 @@ class Source(object):
         return aperture_lc
 
     def _calc_cdpp(self, flux, **kwargs):
-        return lc.TessLightCurve(flux=flux).estimate_cdpp(**kwargs)
+        return lc.TessLightCurve(flux=flux+1).estimate_cdpp(**kwargs)
 
     def calc_min_cpm_reg(self, cpm_regs, k, **kwargs):
         cdpps = np.zeros((cpm_regs.size, k))
@@ -256,26 +256,30 @@ class Source(object):
             split_cdpp = np.array([self._calc_cdpp(flux) for flux in apt_cpm_subtracted_lc])
             cdpps[idx] = split_cdpp
         section_avg_cdpps = np.average(cdpps, axis=1)
+        section_sum_cdpps = np.sum(cdpps, axis=1)
         min_cpm_reg = cpm_regs[np.argmin(section_avg_cdpps)]
         fig, axs = plt.subplots(3, 1, figsize=(18, 15))
         for cpm_reg, cdpp in zip(cpm_regs, cdpps):
-            axs[0].plot(np.arange(k)+1, np.log(cdpp), ".--", ms=10, label=f"Reg {cpm_reg}")
+            axs[0].plot(np.arange(k)+1, cdpp, ".--", ms=10, label=f"Reg {cpm_reg}")
         axs[0].set_xlabel("k-th section of lightcurve", fontsize=15)
         axs[0].set_ylabel("CDPP", fontsize=20)
         # axs[0].set_xscale("log")
         axs[0].set_yscale("log")
         for idx, cdpp in enumerate(cdpps.T):
             axs[1].plot(cpm_regs, cdpp, ".--", ms=10, label=f"Section {idx+1}")
-        axs[1].set_xlabel("CPM Regularization Values", fontsize=15)
-        axs[1].set_ylabel(r"$\log$CDPP", fontsize=20)
+        axs[1].set_xlabel("CPM Regularization Value [Precision]", fontsize=15)
+        axs[1].set_ylabel("CDPP", fontsize=20)
         axs[1].set_xscale("log")
         axs[1].set_yscale("log")
         axs[1].legend()
-        axs[2].plot(np.log(cpm_regs), np.log(section_avg_cdpps), ".-")
-        axs[2].set_xlabel("CPM Regularization Values", fontsize=15)
-        axs[2].set_ylabel(r"$\log$CDPP", fontsize=20)
+        axs[2].plot(cpm_regs, section_avg_cdpps, ".-", c="k")
+        axs[2].set_xlabel("CPM Regularization Value [Precision]", fontsize=15)
+        axs[2].set_ylabel("Section Average CDPP", fontsize=20)
         axs[2].set_xscale("log")
         axs[2].set_yscale("log")
+
+        for ax in axs:
+            ax.tick_params(labelsize="large")
         # axs[2].scatter(min_cpm_reg, section_avg_cdpps[np.where(cpm_regs == min_cpm_reg)], 
                     # marker="X", s=100, color="r", label="Minimum CPM Reg")
         # axs[2].legend()
