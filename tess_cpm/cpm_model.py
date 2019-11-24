@@ -186,7 +186,7 @@ class CPM(object):
 
         if method == "similar_brightness":
             valid_flux_medians = self.target_data.flattened_flux_medians[
-                self.mask_excluded_pixels.ravel()
+                ~self.mask_excluded_pixels.ravel()
             ]
             diff = np.abs(valid_flux_medians - self.target_median)
             chosen_idx = valid_idx[np.argsort(diff)[0:n]]
