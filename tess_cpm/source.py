@@ -136,9 +136,9 @@ class Source(object):
             vmax=np.percentile(full_median_image, h),
         )
         if rowrange is not None:
-            plt.xticks(np.arange(rowrange[-1]-rowrange[0]), labels=[str(i) for i in np.arange(rows[0], rows[-1])])
+            plt.yticks(np.arange(rowrange[-1]-rowrange[0]), labels=[str(i) for i in np.arange(rows[0], rows[-1])])
         if colrange is not None:
-            plt.yticks(np.arange(colrange[-1]-colrange[0]), labels=[str(i) for i in np.arange(cols[0], cols[-1])])
+            plt.xticks(np.arange(colrange[-1]-colrange[0]), labels=[str(i) for i in np.arange(cols[0], cols[-1])])
 
         if show_aperture:
             aperture = self.aperture[rows[0]:rows[-1], cols[0]:cols[-1]]
