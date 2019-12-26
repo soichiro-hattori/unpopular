@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astroquery.mast import Tesscut
 from astropy.io import fits
+from astropy.wcs import WCS
 import lightkurve as lk
 import re
 
@@ -30,10 +31,10 @@ class TargetData(object):
             self.flux_errors = hdu[1].data["FLUX_ERR"]
             self.quality = hdu[1].data["QUALITY"]
             try:
-                self.wcs_info = WCS(hdulist[2].header)
-            except:
-                if verbose == True:
-                    print("WCS Info could not be retrieved")
+                self.wcs_info = WCS(hdu[2].header)
+            except Exception as inst:
+                print(inst)
+                print("WCS Info could not be retrieved")
 
         self.flagged_times = self.time[self.quality > 0]
         # If remove_bad is set to True, we'll remove the values with a nonzero entry in the quality array

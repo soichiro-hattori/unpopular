@@ -46,6 +46,28 @@ class PixelModel(object):
     @property
     def models(self):
         return list(filter(bool, [self.cpm, self.poly_model, self.custom_model]))
+    
+    @property
+    def values_dict(self):
+        return {
+            "raw" : (self.y + 1) * self.median,
+            "normalized_flux" : self.y,
+            "cpm_prediction" : self.cpm_prediction,
+            "poly_model_prediction" : self.poly_model_prediction,
+            "cpm_subtracted_lc" : self.cpm_subtracted_lc,
+            "rescaled_cpm_subtracted_lc" : self.rescaled_cpm_subtracted_lc
+        }
+    
+    @property
+    def split_values_dict(self):
+        return {
+            "raw" : [(split_flux + 1) * self.median for split_flux in self.split_fluxes],
+            "normalized_flux" : self.split_fluxes,
+            "cpm_prediction" : self.split_cpm_prediction,
+            "poly_model_prediction" : self.split_poly_model_prediction,
+            "cpm_subtracted_lc" : self.split_cpm_subtracted_lc,
+            "rescaled_cpm_subtracted_lc" : self.split_rescaled_cpm_subtracted_lc
+        }
 
     def add_cpm_model(
         self,

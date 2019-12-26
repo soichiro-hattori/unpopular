@@ -90,8 +90,8 @@ class Source(object):
                 model.set_regs(regs, verbose)
 
     def holdout_fit_predict(self, k=10, mask=None):
-        # if self.models is None:
-        #     print("Please set the aperture first.")
+        if self.models is None:
+            print("Please set the aperture first.")
         predictions = []
         fluxes = []
         detrended_lcs = []
@@ -111,21 +111,18 @@ class Source(object):
         self.split_fluxes = fluxes
         self.split_predictions = predictions
         self.split_detrended_lcs = detrended_lcs
+        self.rescale()
         return (times, fluxes, predictions)
 
     def plot_cutout(self, rowrange=None, colrange=None, l=10, h=90, show_aperture=False):
         if rowrange is None:
-            # rows = slice(0, self.target_data.cutout_sidelength)
             rows = [0, self.target_data.cutout_sidelength]
         else:
-            # rows = slice(rowrange[0], rowrange[1])
             rows = rowrange
 
         if colrange is None:
-            # cols = slice(0, self.target_data.cutout_sidelength)
             cols = [0, self.target_data.cutout_sidelength]
         else:
-            # cols = slice(colrange[0], colrange[1])
             cols = colrange
         full_median_image = self.target_data.flux_medians
         median_image = self.target_data.flux_medians[rows[0]:rows[-1], cols[0]:cols[-1]]
@@ -161,37 +158,11 @@ class Source(object):
             for c in cols:
                 ax = axs[rows[-1] - r, c]  # Needed to flip the rows so that they match origin='lower' setting
                 if split:
-                    if data_type == "raw":
-                        yy = self.models[r][c].split_fluxes
-                    elif data_type == "prediction":
-                        yy = self.models[r][c].split_prediction
-                    elif data_type == "cpm_prediction":
-                        yy = self.models[r][c].split_cpm_prediction
-                    elif data_type == "poly_model_prediction":
-                        yy = self.models[r][c].split_poly_model_prediction
-                    # elif data_type == "detrended_lc":
-                    #     yy = self.models[r][c].split_detrended_lcs
-                    elif data_type == "cpm_subtracted_lc":
-                        yy = self.models[r][c].split_cpm_subtracted_lc
-                    elif data_type == "rescaled_cpm_subtracted_lc":
-                        yy = self.models[r][c].split_rescaled_cpm_subtracted_lc
+                    yy = self.models[r][c].split_values_dict[data_type]
                     for time, y in zip(self.split_times, yy):
                         ax.plot(time[::thin], y[::thin], '.')
                 else:
-                    if data_type == "raw":
-                        y = self.models[r][c].y
-                    elif data_type == "prediction":
-                        y = self.models[r][c].prediction
-                    elif data_type == "cpm_prediction":
-                        y = self.models[r][c].cpm_prediction
-                    elif data_type == "poly_model_prediction":
-                        y = self.models[r][c].poly_model_prediction
-                    elif data_type == "cpm_subtracted_lc":
-                        y = self.models[r][c].cpm_subtracted_lc
-                    elif data_type == "rescaled_cpm_subtracted_lc":
-                        y = self.models[r][c].rescaled_cpm_subtracted_lc
-                    # elif data_type == "detrended_lc":
-                    #     y = np.concatenate(self.models[r][c].split_detrended_lcs)
+                    y = self.models[r][c].values_dict[data_type]
                     ax.plot(self.time[::thin], y[::thin], '.', c='k')
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
@@ -213,35 +184,9 @@ class Source(object):
         for r in rows:
             for c in cols:
                 if split:
-                    if data_type == "raw":
-                        aperture_lc += np.array(self.models[r][c].split_fluxes)
-                    elif data_type == "prediction":
-                        aperture_lc += self.models[r][c].split_prediction
-                    elif data_type == "cpm_prediction":
-                        aperture_lc += self.models[r][c].split_cpm_prediction
-                    elif data_type == "poly_model_prediction":
-                        aperture_lc += self.models[r][c].split_poly_model_prediction
-                    # elif data_type == "detrended_lc":
-                    #     yy = self.models[r][c].split_detrended_lcs
-                    elif data_type == "cpm_subtracted_lc":
-                        aperture_lc += self.models[r][c].split_cpm_subtracted_lc
-                    elif data_type == "rescaled_cpm_subtracted_lc":
-                        aperture_lc += self.models[r][c].split_rescaled_cpm_subtracted_lc
+                    aperture_lc += self.models[r][c].split_values_dict[data_type]
                 else:
-                    if data_type == "raw":
-                        aperture_lc += self.models[r][c].y
-                    elif data_type == "prediction":
-                        aperture_lc += self.models[r][c].prediction
-                    elif data_type == "cpm_prediction":
-                        aperture_lc += self.models[r][c].cpm_prediction
-                    elif data_type == "poly_model_prediction":
-                        aperture_lc += self.models[r][c].poly_model_prediction
-                    elif data_type == "cpm_subtracted_lc":
-                        aperture_lc += self.models[r][c].cpm_subtracted_lc
-                    elif data_type == "rescaled_cpm_subtracted_lc":
-                        aperture_lc += self.models[r][c].rescaled_cpm_subtracted_lc
-                    # elif data_type == "detrended_lc":
-                    #     y = np.concatenate(self.models[r][c].split_detrended_lcs)
+                    aperture_lc += self.models[r][c].values_dict[data_type]
         return aperture_lc
 
     def _calc_cdpp(self, flux, **kwargs):
