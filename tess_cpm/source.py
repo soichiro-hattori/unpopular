@@ -174,7 +174,7 @@ class Source(object):
                     elif data_type == "cpm_subtracted_lc":
                         yy = self.models[r][c].split_cpm_subtracted_lc
                     elif data_type == "rescaled_cpm_subtracted_lc":
-                        yy = self.models[r][c].rescaled_cpm_subtracted_lc
+                        yy = self.models[r][c].split_rescaled_cpm_subtracted_lc
                     for time, y in zip(self.split_times, yy):
                         ax.plot(time[::thin], y[::thin], '.')
                 else:

@@ -167,12 +167,12 @@ class PixelModel(object):
 
         if mask is None:
             mask = np.full(self.time.shape, True)
-        # time = self.time[mask]
-        # y = self.y[mask]
-        # m = self.m[mask]
-        time = self.time
-        y = self.y
-        m = self.m
+        time = self.time[mask]
+        y = self.y[mask]
+        m = self.m[mask]
+        # time = self.time
+        # y = self.y
+        # m = self.m
 
         times = []
         y_tests = []
