@@ -148,7 +148,7 @@ class Source(object):
         flux = self.target_data.fluxes[:, row, col]
         plt.plot(self.target_data.time, flux, ".")
 
-    def plot_pix_by_pix(self, split=False, data_type="raw", figsize=(12, 8), thin=1):
+    def plot_pix_by_pix(self, data_type="raw", split=False, figsize=(12, 8), thin=1):
         # if self.split_predictions is None:
             # self.holdout_fit_predict()
         rows = np.arange(len(self.models))
@@ -172,7 +172,7 @@ class Source(object):
             for mod in rowmod:
                 mod.rescale()
 
-    def get_aperture_lc(self, split=False, data_type="raw", verbose=True):
+    def get_aperture_lc(self, data_type="raw", split=False, verbose=True):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         if verbose:
@@ -192,11 +192,11 @@ class Source(object):
     def _calc_cdpp(self, flux, **kwargs):
         return lc.TessLightCurve(flux=flux+1).estimate_cdpp(**kwargs)
 
-    def calc_min_cpm_reg(self, cpm_regs, k, **kwargs):
+    def calc_min_cpm_reg(self, cpm_regs, k, mask=None, **kwargs):
         cdpps = np.zeros((cpm_regs.size, k))
         for idx, reg in enumerate(cpm_regs):
             self.set_regs([reg])
-            self.holdout_fit_predict(k)
+            self.holdout_fit_predict(k, mask)
             apt_cpm_subtracted_lc = self.get_aperture_lc(split=True, data_type="cpm_subtracted_lc", verbose=False)
             split_cdpp = np.array([self._calc_cdpp(flux) for flux in apt_cpm_subtracted_lc])
             cdpps[idx] = split_cdpp

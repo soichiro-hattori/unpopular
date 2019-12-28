@@ -32,16 +32,16 @@ class PixelModel(object):
         self.prediction = None
         self.cpm_prediction = None
         self.poly_model_prediction = None
-        self.cpm_subtracted_lc = None
-        self.rescaled_cpm_subtracted_lc = None
+        self.cpm_subtracted_flux = None
+        self.rescaled_cpm_subtracted_flux = None
         self.split_time = []
         self.split_fluxes = []
         self.split_prediction = []
         self.split_cpm_prediction = []
         self.split_poly_model_prediction = []
         self.split_custom_model_prediction = []
-        self.split_cpm_subtracted_lc = []
-        self.split_rescaled_cpm_subtracted_lc = []
+        self.split_cpm_subtracted_flux = []
+        self.split_rescaled_cpm_subtracted_flux = []
 
     @property
     def models(self):
@@ -54,8 +54,8 @@ class PixelModel(object):
             "normalized_flux" : self.y,
             "cpm_prediction" : self.cpm_prediction,
             "poly_model_prediction" : self.poly_model_prediction,
-            "cpm_subtracted_lc" : self.cpm_subtracted_lc,
-            "rescaled_cpm_subtracted_lc" : self.rescaled_cpm_subtracted_lc
+            "cpm_subtracted_flux" : self.cpm_subtracted_flux,
+            "rescaled_cpm_subtracted_flux" : self.rescaled_cpm_subtracted_flux
         }
     
     @property
@@ -65,8 +65,8 @@ class PixelModel(object):
             "normalized_flux" : self.split_fluxes,
             "cpm_prediction" : self.split_cpm_prediction,
             "poly_model_prediction" : self.split_poly_model_prediction,
-            "cpm_subtracted_lc" : self.split_cpm_subtracted_lc,
-            "rescaled_cpm_subtracted_lc" : self.split_rescaled_cpm_subtracted_lc
+            "cpm_subtracted_flux" : self.split_cpm_subtracted_flux,
+            "rescaled_cpm_subtracted_flux" : self.split_rescaled_cpm_subtracted_flux
         }
 
     def add_cpm_model(
@@ -189,12 +189,12 @@ class PixelModel(object):
 
         if mask is None:
             mask = np.full(self.time.shape, True)
-        time = self.time[mask]
-        y = self.y[mask]
-        m = self.m[mask]
-        # time = self.time
-        # y = self.y
-        # m = self.m
+        # time = self.time[mask]
+        # y = self.y[mask]
+        # m = self.m[mask]
+        time = self.time
+        y = self.y
+        m = self.m
 
         times = []
         y_tests = []
@@ -230,8 +230,8 @@ class PixelModel(object):
             if self.poly_model is not None:
                 m_poly, param_poly = m[:, self.cpm.num_predictor_pixels :], param[self.cpm.num_predictor_pixels :]
                 self.split_poly_model_prediction.append(np.dot(m_poly, param_poly))
-        self.split_cpm_subtracted_lc = [y-cpm for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]
-        self.cpm_subtracted_lc = np.concatenate(self.split_cpm_subtracted_lc)
+        self.split_cpm_subtracted_flux = [y-cpm for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]
+        self.cpm_subtracted_flux = np.concatenate(self.split_cpm_subtracted_flux)
         self.cpm_prediction = np.concatenate(self.split_cpm_prediction)
         if self.poly_model is not None:
             self.poly_model_prediction = np.concatenate(self.split_poly_model_prediction)
@@ -244,11 +244,11 @@ class PixelModel(object):
         self.split_cpm_prediction = []
         self.split_poly_model_prediction = []
         self.split_custom_model_prediction = []
-        self.split_cpm_subtracted_lc = []
+        self.split_cpm_subtracted_flux = []
 
     def rescale(self):
-        self.split_rescaled_cpm_subtracted_lc = [(lc + 1) * self.median for lc in self.split_cpm_subtracted_lc]
-        self.rescaled_cpm_subtracted_lc = (self.cpm_subtracted_lc + 1) * self.median
+        self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]
+        self.rescaled_cpm_subtracted_flux = (self.cpm_subtracted_flux + 1) * self.median
 
 
 
