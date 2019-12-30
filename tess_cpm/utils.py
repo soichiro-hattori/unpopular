@@ -180,14 +180,27 @@ def summary_plot(cpm, n=20, subtract_polynomials=False, save=False):
             dpi=200,
         )
 
+def stitch_sectors(t1, t2, lc1, lc2, points=50):
+    offset = np.ones((points, 1))
+    offset
+    m = np.block([
+                 [t1[-points:].reshape(-1, 1), offset, np.zeros((points, 1))],
+                 [t2[:points].reshape(-1, 1), np.zeros((points, 1)), offset]
+        ])
+    y = np.concatenate((lc1[-points:], lc2[:points]))
+    a = np.dot(m.T, m)
+    b = np.dot(m.T, y)
+    params = np.linalg.solve(a, b)
+    time = np.concatenate((t1, t2))
+    diff = np.abs(params[-2] - params[-1]) + params[0]*(time[int(points/2) + 1] - time[int(points/2)])
+    return (diff, time, np.concatenate((lc1, lc2+diff)))
 
-# def sap(row, col, size, diff):
-#     """Simple Aperture Photometry for a given pixel.
-
-#     """
-#     aperture = diff[:, max(0, row-size):min(row+size+1, diff.shape[1]),
-#                     max(0, col-size):min(col+size+1, diff.shape[1])]
-#     aperture_lc = np.sum(aperture, axis=(1, 2))
-#     return aperture, aperture_lc
-
-# def patch_sectors(a_time, b_time, a_flux, b_flux):
+def get_outliers(lc, sigma=3):
+    if lc.ndim == 1:
+        clipped_above = lc > (np.median(lc) + sigma*np.std(lc))
+        clipped_below = lc < (np.median(lc) - sigma*np.std(lc))
+    else:
+        clipped_above = np.concatenate([flux > (np.median(flux) + sigma*np.std(flux)) for flux in lc])
+        clipped_below = np.concatenate([flux < (np.median(flux) - sigma*np.std(flux)) for flux in lc])
+    outliers = clipped_above + clipped_below
+    return outliers

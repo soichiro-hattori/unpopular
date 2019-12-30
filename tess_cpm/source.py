@@ -114,7 +114,7 @@ class Source(object):
         self.rescale()
         return (times, fluxes, predictions)
 
-    def plot_cutout(self, rowrange=None, colrange=None, l=10, h=90, show_aperture=False):
+    def plot_cutout(self, rowrange=None, colrange=None, l=10, h=90, show_aperture=False, projection=None):
         if rowrange is None:
             rows = [0, self.target_data.cutout_sidelength]
         else:
@@ -126,6 +126,9 @@ class Source(object):
             cols = colrange
         full_median_image = self.target_data.flux_medians
         median_image = self.target_data.flux_medians[rows[0]:rows[-1], cols[0]:cols[-1]]
+        if projection == "wcs":
+            projection = self.target_data.wcs_info
+        plt.subplot(111, projection=projection)
         plt.imshow(
             median_image,
             origin="lower",
@@ -197,7 +200,7 @@ class Source(object):
         for idx, reg in enumerate(cpm_regs):
             self.set_regs([reg])
             self.holdout_fit_predict(k, mask)
-            apt_cpm_subtracted_lc = self.get_aperture_lc(split=True, data_type="cpm_subtracted_lc", verbose=False)
+            apt_cpm_subtracted_lc = self.get_aperture_lc(split=True, data_type="cpm_subtracted_flux", verbose=False)
             split_cdpp = np.array([self._calc_cdpp(flux) for flux in apt_cpm_subtracted_lc])
             cdpps[idx] = split_cdpp
         section_avg_cdpps = np.average(cdpps, axis=1)
