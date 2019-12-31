@@ -20,14 +20,14 @@ class PixelModel(object):
         self.row = row
         self.col = col
         self.time = self.target_data.time
-        self.y = self.target_data.normalized_fluxes[:, row, col]
+        self.norm_flux = self.target_data.normalized_fluxes[:, row, col]
         self.median = self.target_data.flux_medians[row, col]
         self.cpm = None
         self.poly_model = None
         self.custom_model = None
         self.regs = []
         self.reg_matrix = None
-        self.m = None
+        self.design_matrix = None
         self.params = None
         self.prediction = None
         self.cpm_prediction = None
@@ -50,8 +50,8 @@ class PixelModel(object):
     @property
     def values_dict(self):
         return {
-            "raw" : (self.y + 1) * self.median,
-            "normalized_flux" : self.y,
+            "raw" : (self.norm_flux + 1) * self.median,
+            "normalized_flux" : self.norm_flux,
             "cpm_prediction" : self.cpm_prediction,
             "poly_model_prediction" : self.poly_model_prediction,
             "cpm_subtracted_flux" : self.cpm_subtracted_flux,
@@ -132,7 +132,7 @@ class PixelModel(object):
         design_matrices = []
         for mod in self.models:
             design_matrices.append(mod.m)
-        self.m = np.hstack((design_matrices))
+        self.design_matrix = np.hstack((design_matrices))
 
     def fit(self, y=None, m=None, mask=None, save=True, verbose=True):
         if self.regs == []:
@@ -142,10 +142,10 @@ class PixelModel(object):
         # self._create_design_matrix()
         if y is None:
             print("Fitting using full light curve.")
-            y = self.y
+            y = self.norm_flux
         if m is None:
             print("Fitting using full light curve.")
-            m = self.m
+            m = self.design_matrix
         if mask is None:
             mask = np.full(y.shape, True)
         elif mask is not None and verbose:
@@ -167,15 +167,15 @@ class PixelModel(object):
 
     def predict(self, m=None, params=None, mask=None, save=True):
         if m is None:
-            m = self.m
+            m = self.design_matrix
         if params is None:
             params = self.params
         if mask is None:
             mask = np.full(m.shape[0], True)
         m = m[mask]
         prediction = np.dot(m, params)
-        # Why does doing self.m give different results...
-        # p = np.dot(self.m, self.params)
+        # Why does doing self.design_matrix give different results...
+        # p = np.dot(self.design_matrix, self.params)
         # print(np.allclose(p, prediction))
         # print(np.alltrue(p == prediction))
         if save:
@@ -190,11 +190,11 @@ class PixelModel(object):
         if mask is None:
             mask = np.full(self.time.shape, True)
         # time = self.time[mask]
-        # y = self.y[mask]
-        # m = self.m[mask]
+        # y = self.norm_flux[mask]
+        # m = self.design_matrix[mask]
         time = self.time
-        y = self.y
-        m = self.m
+        y = self.norm_flux
+        m = self.design_matrix
 
         times = []
         y_tests = []
@@ -249,31 +249,3 @@ class PixelModel(object):
     def rescale(self):
         self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]
         self.rescaled_cpm_subtracted_flux = (self.cpm_subtracted_flux + 1) * self.median
-
-
-
-    # def _get_hyperparameters(
-    #     self, y, rescale=True, k=10, grid_size=30, transit_duration=13
-    # ):
-    #     """Obtain the regularization hyperparameters by performing cross validation.
-
-    #     Args:
-    #         y (array): The target pixel fluxes
-    #     """
-    #     print(
-    #         f"Performing {k}-fold cross validation to obtain regularization parameters."
-    #     )
-
-    #     kf = KFold(k)
-    #     counter = 0
-    #     cdpps = np.zeros((k, grid_size))
-    #     for train, test in kf.split(y):
-    #         print(f"{counter+1} / {k}")
-    #         y_train, y_test = y[train], y[test]
-    #         m_train, m_test = self.m[train], self.m[test]
-
-    #         if rescale:
-    #             return
-
-    # def _get_params(self, y):
-    #     return

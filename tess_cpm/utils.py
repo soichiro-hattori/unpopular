@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astroquery.mast import Tesscut
+from scipy.ndimage import median_filter
 
 
 def get_data(ra, dec, units="deg", size=64):
@@ -195,12 +196,22 @@ def stitch_sectors(t1, t2, lc1, lc2, points=50):
     diff = np.abs(params[-2] - params[-1]) + params[0]*(time[int(points/2) + 1] - time[int(points/2)])
     return (diff, time, np.concatenate((lc1, lc2+diff)))
 
-def get_outliers(lc, sigma=3):
-    if lc.ndim == 1:
-        clipped_above = lc > (np.median(lc) + sigma*np.std(lc))
-        clipped_below = lc < (np.median(lc) - sigma*np.std(lc))
-    else:
-        clipped_above = np.concatenate([flux > (np.median(flux) + sigma*np.std(flux)) for flux in lc])
-        clipped_below = np.concatenate([flux < (np.median(flux) - sigma*np.std(flux)) for flux in lc])
-    outliers = clipped_above + clipped_below
+def get_outliers(lc, window=50, sigma=5, sigma_upper=None, sigma_lower=None):
+    if sigma_upper is None:
+        sigma_upper = sigma
+    if sigma_lower is None:
+        sigma_lower = sigma
+    median_lc = median_filter(lc, size=window)
+    median_subtracted_lc = lc - median_lc
+    outliers = np.full(lc.shape, False)
+    while True:
+        std = np.std(median_subtracted_lc)
+        clipped_upper = median_subtracted_lc > sigma_upper*std
+        clipped_lower = median_subtracted_lc < -sigma_lower*std
+        out = clipped_upper + clipped_lower
+        if np.sum(out) == np.sum(outliers):
+            break
+        outliers += out
     return outliers
+
+

@@ -201,7 +201,7 @@ class Source(object):
             self.set_regs([reg])
             self.holdout_fit_predict(k, mask)
             apt_cpm_subtracted_lc = self.get_aperture_lc(split=True, data_type="cpm_subtracted_flux", verbose=False)
-            split_cdpp = np.array([self._calc_cdpp(flux) for flux in apt_cpm_subtracted_lc])
+            split_cdpp = np.array([self._calc_cdpp(flux, **kwargs) for flux in apt_cpm_subtracted_lc])
             cdpps[idx] = split_cdpp
         section_avg_cdpps = np.average(cdpps, axis=1)
         section_sum_cdpps = np.sum(cdpps, axis=1)
