@@ -56,7 +56,7 @@ class TargetData(object):
         self.flattened_flux_medians = self.flux_medians.reshape(
             self.cutout_sidelength ** 2
         )
-        # We also rescale the fluxes to be divided by the median and centered about zero
+        # We rescale the fluxes by dividing by the mean and then centering them around zero.
         self.normalized_fluxes = (self.fluxes / self.flux_medians) - 1
         self.flattened_normalized_fluxes = self.normalized_fluxes.reshape(
             self.time.shape[0], self.cutout_sidelength ** 2

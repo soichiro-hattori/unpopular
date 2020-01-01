@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import lightkurve as lc
+from scipy.ndimage import median_filter
 
 from .target_data import TargetData
 from .model import PixelModel
@@ -92,6 +94,8 @@ class Source(object):
     def holdout_fit_predict(self, k=10, mask=None):
         if self.models is None:
             print("Please set the aperture first.")
+        if mask is not None:
+            print(f"Using user-provided mask. Clipping {np.sum(~mask)} points.")
         predictions = []
         fluxes = []
         detrended_lcs = []
@@ -152,8 +156,6 @@ class Source(object):
         plt.plot(self.target_data.time, flux, ".")
 
     def plot_pix_by_pix(self, data_type="raw", split=False, figsize=(12, 8), thin=1):
-        # if self.split_predictions is None:
-            # self.holdout_fit_predict()
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=figsize, squeeze=False)
@@ -170,10 +172,52 @@ class Source(object):
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
 
+    def get_lc_matrix(self, data_type="cpm_subtracted_flux"):
+        rows = np.arange(len(self.models))
+        cols = np.arange(len(self.models[0]))
+        lc_matrix = np.zeros((self.time.size, rows.size, cols.size))
+        for r in rows:
+            for c in cols:
+                y = self.models[r][c].values_dict[data_type]
+                lc_matrix[:, rows[-1] - r, c] = y
+        return lc_matrix
+    
+    def make_animation(self, data_type="cpm_subtracted_flux", l=0, h=100, thin=5):
+        lc_matrix = self.get_lc_matrix(data_type=data_type)
+        fig, axes = plt.subplots(1, 1, figsize=(12, 12))
+        ims = []
+        for i in range(0, lc_matrix.shape[0], thin):
+            im1 = axes.imshow(lc_matrix[i], animated=True,
+                              vmin=np.percentile(lc_matrix, l), vmax=np.percentile(lc_matrix, h))
+            ims.append([im1])
+        fig.colorbar(im1, ax=axes, fraction=0.046)    
+        ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
+                                repeat_delay=1000)
+        return ani
+
     def rescale(self):
         for rowmod in self.models:
             for mod in rowmod:
                 mod.rescale()
+
+    def get_outliers(self, data_type="cpm_subtracted_flux", window=50, sigma=5, sigma_upper=None, sigma_lower=None):
+        lc = self.get_aperture_lc(data_type=data_type)
+        if sigma_upper is None:
+            sigma_upper = sigma
+        if sigma_lower is None:
+            sigma_lower = sigma
+        median_lc = median_filter(lc, size=window)
+        median_subtracted_lc = lc - median_lc
+        outliers = np.full(lc.shape, False)
+        while True:
+            std = np.std(median_subtracted_lc)
+            clipped_upper = median_subtracted_lc > sigma_upper*std
+            clipped_lower = median_subtracted_lc < -sigma_lower*std
+            out = clipped_upper + clipped_lower
+            if np.sum(out) == np.sum(outliers):
+                break
+            outliers += out
+        return outliers
 
     def get_aperture_lc(self, data_type="raw", split=False, verbose=True):
         rows = np.arange(len(self.models))

@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astroquery.mast import Tesscut
-from scipy.ndimage import median_filter
 
 
 def get_data(ra, dec, units="deg", size=64):
@@ -196,22 +195,39 @@ def stitch_sectors(t1, t2, lc1, lc2, points=50):
     diff = np.abs(params[-2] - params[-1]) + params[0]*(time[int(points/2) + 1] - time[int(points/2)])
     return (diff, time, np.concatenate((lc1, lc2+diff)))
 
-def get_outliers(lc, window=50, sigma=5, sigma_upper=None, sigma_lower=None):
-    if sigma_upper is None:
-        sigma_upper = sigma
-    if sigma_lower is None:
-        sigma_lower = sigma
-    median_lc = median_filter(lc, size=window)
-    median_subtracted_lc = lc - median_lc
-    outliers = np.full(lc.shape, False)
-    while True:
-        std = np.std(median_subtracted_lc)
-        clipped_upper = median_subtracted_lc > sigma_upper*std
-        clipped_lower = median_subtracted_lc < -sigma_lower*std
-        out = clipped_upper + clipped_lower
-        if np.sum(out) == np.sum(outliers):
-            break
-        outliers += out
-    return outliers
+# Maybe this function should be a method for the Source class.
+# def get_outliers(lc, window=50, sigma=5, sigma_upper=None, sigma_lower=None):
+    # if sigma_upper is None:
+    #     sigma_upper = sigma
+    # if sigma_lower is None:
+    #     sigma_lower = sigma
+    # median_lc = median_filter(lc, size=window)
+    # median_subtracted_lc = lc - median_lc
+    # outliers = np.full(lc.shape, False)
+    # while True:
+    #     std = np.std(median_subtracted_lc)
+    #     clipped_upper = median_subtracted_lc > sigma_upper*std
+    #     clipped_lower = median_subtracted_lc < -sigma_lower*std
+    #     out = clipped_upper + clipped_lower
+    #     if np.sum(out) == np.sum(outliers):
+    #         break
+    #     outliers += out
+    # return outliers
 
+# from IPython.display import HTML
+# import matplotlib.animation as animation
 
+# fig, axes = plt.subplots(1, 1, figsize=(12, 12))
+# ims = []
+# for i in range(0, lc_matrix.shape[0], 3):
+#     im1 = axes.imshow(lc_matrix[i], animated=True,
+#                         vmin=np.percentile(lc_matrix, 0), vmax=np.percentile(lc_matrix, 100))
+#     ims.append([im1]);
+# fig.colorbar(im1, ax=axes, fraction=0.046)
+# # fig.colorbar(im2, ax=axes[1], fraction=0.046)
+# # fig.colorbar(im3, ax=axes[2], fraction=0.046)
+    
+# ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
+#                                 repeat_delay=1000);
+
+# HTML(ani.to_jshtml())
