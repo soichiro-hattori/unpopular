@@ -7,22 +7,22 @@ from sklearn.model_selection import KFold
 
 
 from .utils import summary_plot
-from .target_data import TargetData
+from .cutout_data import CutoutData
 
 
 class CPM(object):
     """A Causal Pixel Model object
 
     Args:
-        target_data (TargetData): A TargetData instance to obtain all the values from.
+        cutout_data (CutoutData): A CutoutData instance to obtain all the values from.
     """
 
     name = "CPM"
 
-    def __init__(self, target_data):
-        if isinstance(target_data, TargetData):
-            self.target_data = target_data
-            self.time = target_data.time
+    def __init__(self, cutout_data):
+        if isinstance(cutout_data, CutoutData):
+            self.cutout_data = cutout_data
+            self.time = cutout_data.time
 
         self.target_row = None
         self.target_col = None
@@ -31,6 +31,7 @@ class CPM(object):
         self.target_flux_median = None
         self.normalized_target_fluxes = None
         self.normalized_target_flux_errors = None
+        self.mask_target_pixel = None
 
         self.exclusion_size = None
         self.method_exclusion = None
@@ -62,19 +63,19 @@ class CPM(object):
         """
         self.target_row = target_row
         self.target_col = target_col
-        self.target_fluxes = self.target_data.fluxes[:, target_row, target_col]
-        self.target_errors = self.target_data.flux_errors[:, target_row, target_col]
-        self.target_median = self.target_data.flux_medians[target_row, target_col]
-        self.normalized_target_fluxes = self.target_data.normalized_fluxes[
+        self.target_fluxes = self.cutout_data.fluxes[:, target_row, target_col]
+        self.target_errors = self.cutout_data.flux_errors[:, target_row, target_col]
+        self.target_median = self.cutout_data.flux_medians[target_row, target_col]
+        self.normalized_target_fluxes = self.cutout_data.normalized_fluxes[
             :, target_row, target_col
         ]
-        self.normalized_target_flux_errors = self.target_data.normalized_flux_errors[
+        self.normalized_target_flux_errors = self.cutout_data.normalized_flux_errors[
             :, target_row, target_col
         ]
 
-        mask = np.full(self.target_data.fluxes[0].shape, False)
+        mask = np.full(self.cutout_data.fluxes[0].shape, False)
         mask[target_row, target_col] = 1
-        self.target_pixel_mask = mask
+        self.mask_target_pixel = mask
         self.is_target_set = True
 
     def set_exclusion(self, exclusion_size=5, method="closest"):
@@ -101,9 +102,9 @@ class CPM(object):
         r = self.target_row  # just to reduce verbosity for this function
         c = self.target_col
         self.exclusion_size = exclusion_size
-        sidelength = self.target_data.cutout_sidelength
+        sidelength = self.cutout_data.cutout_sidelength
 
-        excluded_pixels = np.full(self.target_data.fluxes[0].shape, False)
+        excluded_pixels = np.full(self.cutout_data.fluxes[0].shape, False)
         if method == "closest":
             excluded_pixels[
                 max(0, r - exclusion_size) : min(r + exclusion_size + 1, sidelength),
@@ -162,7 +163,7 @@ class CPM(object):
 
         self.method_choose_predictor_pixels = method
         self.num_predictor_pixels = n
-        sidelength = self.target_data.cutout_sidelength
+        sidelength = self.cutout_data.cutout_sidelength
 
         # I'm going to do this in 1D by assinging individual pixels a single index instead of two.
         coordinate_idx = np.arange(sidelength ** 2)
@@ -170,7 +171,7 @@ class CPM(object):
         # valid_idx = coordinate_idx[self.excluded_pixels_mask.mask.ravel()]
 
         if method == "cosine_similarity":
-            valid_normalized_fluxes = self.target_data.flattened_normalized_fluxes[
+            valid_normalized_fluxes = self.cutout_data.flattened_normalized_fluxes[
                 :, ~self.mask_excluded_pixels.ravel()
             ]
             cos_sim = np.dot(
@@ -185,7 +186,7 @@ class CPM(object):
             chosen_idx = np.random.choice(valid_idx, size=n, replace=False)
 
         if method == "similar_brightness":
-            valid_flux_medians = self.target_data.flattened_flux_medians[
+            valid_flux_medians = self.cutout_data.flattened_flux_medians[
                 ~self.mask_excluded_pixels.ravel()
             ]
             diff = np.abs(valid_flux_medians - self.target_median)
@@ -195,11 +196,11 @@ class CPM(object):
             [[idx // sidelength, idx % sidelength] for idx in chosen_idx]
         )
         loc = self.locations_predictor_pixels.T
-        mask = np.full(self.target_data.fluxes[0].shape, False)
-        mask[loc[0], loc[1]] = True
-        self.predictor_pixels_fluxes = self.target_data.fluxes[:, loc[0], loc[1]]
-        self.normalized_predictor_pixels_fluxes = self.target_data.normalized_fluxes[
-            :, loc[0], loc[1]
+        mask = np.full(self.cutout_data.fluxes[0].shape, False)
+        mask[loc[0], loc[1]] = True  # pylint: disable=unsubscriptable-object
+        self.predictor_pixels_fluxes = self.cutout_data.fluxes[:, loc[0], loc[1]]  # pylint: disable=unsubscriptable-object
+        self.normalized_predictor_pixels_fluxes = self.cutout_data.normalized_fluxes[
+            :, loc[0], loc[1]  # pylint: disable=unsubscriptable-object
         ]
         self.mask_predictor_pixels = mask
         self.are_predictors_set = True
@@ -253,3 +254,57 @@ class CPM(object):
         prediction = np.dot(m, params)
         self.prediction = prediction
         return prediction
+
+    def plot_model(self):
+
+        plt.figure(figsize=(12, 12))
+
+        median_image = self.cutout_data.flux_medians
+        print(median_image.shape)
+        plt.imshow(median_image, origin="lower", 
+            vmin=np.nanpercentile(median_image, 10),
+            vmax=np.nanpercentile(median_image, 90)
+            )
+        plt.imshow(np.ma.masked_where(self.mask_excluded_pixels==False, self.mask_excluded_pixels), origin="lower", cmap="Set1", alpha=0.5)
+        plt.imshow(np.ma.masked_where(self.mask_target_pixel==False, self.mask_target_pixel), origin="lower", cmap="binary", alpha=1.0)
+        plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="binary_r", alpha=0.9)
+        plt.show()
+
+
+        # ax1 = plt.subplot2grid((4, 3), (0, 0), rowspan=2)
+        # ax2 = plt.subplot2grid((4, 3), (0, 1), rowspan=2)
+        # ax3 = plt.subplot2grid((4, 3), (0, 2), rowspan=2)
+
+        # ax4 = plt.subplot2grid((4, 3), (2, 0), colspan=3)
+        # ax5 = plt.subplot2grid((4, 3), (3, 0), colspan=3)
+
+        
+
+        # #     first_image = cpm.im_fluxes[0,:,:]
+        # ax1.imshow(
+        #     first_image,
+        #     origin="lower",
+        #     vmin=np.nanpercentile(first_image, 10),
+        #     vmax=np.nanpercentile(first_image, 90),
+        # )
+
+        # ax2.imshow(
+        #     first_image,
+        #     origin="lower",
+        #     vmin=np.nanpercentile(first_image, 10),
+        #     vmax=np.nanpercentile(first_image, 90),
+        # )
+        # ax2.imshow(cpm.excluded_pixels_mask, origin="lower", cmap="Set1", alpha=0.5)
+        # ax2.imshow(cpm.target_pixel_mask, origin="lower", cmap="binary", alpha=1.0)
+        # ax2.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
+
+        # ax3.imshow(
+        #     first_image,
+        #     origin="lower",
+        #     vmin=np.nanpercentile(first_image, 10),
+        #     vmax=np.nanpercentile(first_image, 90),
+        # )
+        # ax3.imshow(cpm.excluded_pixels_mask, origin="lower", cmap="Set1", alpha=0.5)
+        # ax3.imshow(cpm.target_pixel_mask, origin="lower", cmap="binary", alpha=1.0)
+        # ax3.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
+        # ax3.imshow(top_n_mask, origin="lower", cmap="Set1")

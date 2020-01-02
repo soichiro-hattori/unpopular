@@ -2,7 +2,7 @@ import numpy as np
 import lightkurve as lk
 from sklearn.model_selection import KFold
 
-from .target_data import TargetData
+from .cutout_data import CutoutData
 from .cpm_model import CPM
 from .poly_model import PolyModel
 from .custom_model import CustomModel
@@ -12,16 +12,16 @@ class PixelModel(object):
     """A pixel model object that can store the different model components for the model used in each target pixel
     """
 
-    def __init__(self, target_data, row, col):
-        if isinstance(target_data, TargetData):
-            self.target_data = target_data
+    def __init__(self, cutout_data, row, col):
+        if isinstance(cutout_data, CutoutData):
+            self.cutout_data = cutout_data
         else:
             return
         self.row = row
         self.col = col
-        self.time = self.target_data.time
-        self.norm_flux = self.target_data.normalized_fluxes[:, row, col]
-        self.median = self.target_data.flux_medians[row, col]
+        self.time = self.cutout_data.time
+        self.norm_flux = self.cutout_data.normalized_fluxes[:, row, col]
+        self.median = self.cutout_data.flux_medians[row, col]
         self.cpm = None
         self.poly_model = None
         self.custom_model = None
@@ -77,7 +77,7 @@ class PixelModel(object):
         predictor_method="cosine_similarity",
         seed=None,
     ):
-        cpm = CPM(self.target_data)
+        cpm = CPM(self.cutout_data)
         cpm.set_target_exclusion_predictors(
             self.row,
             self.col,
@@ -93,7 +93,7 @@ class PixelModel(object):
         self.cpm = None
 
     def add_poly_model(self, scale=2, num_terms=4):
-        poly_model = PolyModel(self.target_data)
+        poly_model = PolyModel(self.cutout_data)
         poly_model.set_poly_model(scale=scale, num_terms=num_terms)
         self.poly_model = poly_model
 
@@ -101,7 +101,7 @@ class PixelModel(object):
         self.poly_model = None
 
     def add_custom_model(self, flux):
-        custom_model = CustomModel(self.target_data, flux)
+        custom_model = CustomModel(self.cutout_data, flux)
         self.custom_model = custom_model
     
     def remove_custom_model(self, flux):
@@ -149,7 +149,7 @@ class PixelModel(object):
         if mask is None:
             mask = np.full(y.shape, True)
         elif mask is not None and verbose:
-            print(f"Using user-provided mask. Clipping {np.sum(~mask)} points.")
+            print(f"Using user-provided mask. Clipping {np.sum(~mask)} points.")  # pylint: disable=invalid-unary-operand-type
         y = y[mask]
         m = m[mask]
 
@@ -249,3 +249,4 @@ class PixelModel(object):
     def rescale(self):
         self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]
         self.rescaled_cpm_subtracted_flux = (self.cpm_subtracted_flux + 1) * self.median
+

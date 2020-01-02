@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 import lightkurve as lc
 from scipy.ndimage import median_filter
 
-from .target_data import TargetData
+from .cutout_data import CutoutData
 from .model import PixelModel
 from .cpm_model import CPM
 from .poly_model import PolyModel
@@ -16,8 +16,8 @@ class Source(object):
     """
 
     def __init__(self, path, remove_bad=True, verbose=True):
-        self.target_data = TargetData(path, remove_bad, verbose)
-        self.time = self.target_data.time
+        self.cutout_data = CutoutData(path, remove_bad, verbose)
+        self.time = self.cutout_data.time
         self.aperture = None
         self.models = None
         self.fluxes = None
@@ -31,7 +31,7 @@ class Source(object):
     def set_aperture(self, rowrange=[49, 52], colrange=[49, 52]):
         self.models = []
         self.fluxes = []
-        apt = np.full(self.target_data.fluxes[0].shape, False)
+        apt = np.full(self.cutout_data.fluxes[0].shape, False)
         # print("Assuming you're interested in the central set of pixels")
         apt[rowrange[0]:rowrange[1], colrange[0]:colrange[1]] = True
 
@@ -40,12 +40,12 @@ class Source(object):
             row_models = []
             row_fluxes = []
             for col in range(colrange[0], colrange[1]):
-                row_models.append(PixelModel(self.target_data, row, col))
-                row_fluxes.append(self.target_data.normalized_fluxes[:, row, col])
+                row_models.append(PixelModel(self.cutout_data, row, col))
+                row_fluxes.append(self.cutout_data.normalized_fluxes[:, row, col])
             self.models.append(row_models)
             self.fluxes.append(row_fluxes)
 
-    def add_cpm_model(self, exclusion_size=5,
+    def add_cpm_model(self, exclusion_size=10,
         exclusion_method="closest",
         n=256,
         predictor_method="cosine_similarity",
@@ -95,7 +95,7 @@ class Source(object):
         if self.models is None:
             print("Please set the aperture first.")
         if mask is not None:
-            print(f"Using user-provided mask. Clipping {np.sum(~mask)} points.")
+            print(f"Using user-provided mask. Clipping {np.sum(~mask)} points.")  # pylint: disable=invalid-unary-operand-type 
         predictions = []
         fluxes = []
         detrended_lcs = []
@@ -120,18 +120,18 @@ class Source(object):
 
     def plot_cutout(self, rowrange=None, colrange=None, l=10, h=90, show_aperture=False, projection=None):
         if rowrange is None:
-            rows = [0, self.target_data.cutout_sidelength]
+            rows = [0, self.cutout_data.cutout_sidelength]
         else:
             rows = rowrange
 
         if colrange is None:
-            cols = [0, self.target_data.cutout_sidelength]
+            cols = [0, self.cutout_data.cutout_sidelength]
         else:
             cols = colrange
-        full_median_image = self.target_data.flux_medians
-        median_image = self.target_data.flux_medians[rows[0]:rows[-1], cols[0]:cols[-1]]
+        full_median_image = self.cutout_data.flux_medians
+        median_image = self.cutout_data.flux_medians[rows[0]:rows[-1], cols[0]:cols[-1]]
         if projection == "wcs":
-            projection = self.target_data.wcs_info
+            projection = self.cutout_data.wcs_info
         plt.subplot(111, projection=projection)
         plt.imshow(
             median_image,
@@ -152,8 +152,8 @@ class Source(object):
     def plot_pixel(self, row=None, col=None, loc=None):
         """Plot the data (lightcurve) for a specified pixel.
         """
-        flux = self.target_data.fluxes[:, row, col]
-        plt.plot(self.target_data.time, flux, ".")
+        flux = self.cutout_data.fluxes[:, row, col]
+        plt.plot(self.cutout_data.time, flux, ".")
 
     def plot_pix_by_pix(self, data_type="raw", split=False, figsize=(12, 8), thin=1):
         rows = np.arange(len(self.models))
@@ -186,7 +186,7 @@ class Source(object):
         lc_matrix = self.get_lc_matrix(data_type=data_type)
         fig, axes = plt.subplots(1, 1, figsize=(12, 12))
         ims = []
-        for i in range(0, lc_matrix.shape[0], thin):
+        for i in range(0, lc_matrix.shape[0], thin):  # pylint: disable=unsubscriptable-object
             im1 = axes.imshow(lc_matrix[i], animated=True,
                               vmin=np.percentile(lc_matrix, l), vmax=np.percentile(lc_matrix, h))
             ims.append([im1])
@@ -212,7 +212,7 @@ class Source(object):
         while True:
             std = np.std(median_subtracted_lc)
             clipped_upper = median_subtracted_lc > sigma_upper*std
-            clipped_lower = median_subtracted_lc < -sigma_lower*std
+            clipped_lower = median_subtracted_lc < -sigma_lower*std  # pylint: disable=invalid-unary-operand-type
             out = clipped_upper + clipped_lower
             if np.sum(out) == np.sum(outliers):
                 break

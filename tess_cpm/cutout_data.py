@@ -4,10 +4,9 @@ from astroquery.mast import Tesscut
 from astropy.io import fits
 from astropy.wcs import WCS
 import lightkurve as lk
-import re
 
 
-class TargetData(object):
+class CutoutData(object):
     """Object containing the data and additional attributes used in the TESS CPM model.
 
     Args:
@@ -31,7 +30,7 @@ class TargetData(object):
             self.flux_errors = hdu[1].data["FLUX_ERR"]
             self.quality = hdu[1].data["QUALITY"]
             try:
-                self.wcs_info = WCS(hdu[2].header)
+                self.wcs_info = WCS(hdu[2].header)  # pylint: disable=no-member
             except Exception as inst:
                 print(inst)
                 print("WCS Info could not be retrieved")

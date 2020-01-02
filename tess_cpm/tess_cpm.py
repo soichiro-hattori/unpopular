@@ -1,3 +1,5 @@
+# This file is no longer used. Most of the functionality was rewritten to the cpm_model.py file.
+
 import numpy as np
 import matplotlib.pyplot as plt
 import lightkurve as lk
