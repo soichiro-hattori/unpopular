@@ -250,3 +250,6 @@ class PixelModel(object):
         self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]
         self.rescaled_cpm_subtracted_flux = (self.cpm_subtracted_flux + 1) * self.median
 
+    def plot_model(self):
+        self.cpm.plot_model()
+

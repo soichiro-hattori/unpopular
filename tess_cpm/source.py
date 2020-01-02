@@ -188,7 +188,7 @@ class Source(object):
         ims = []
         for i in range(0, lc_matrix.shape[0], thin):  # pylint: disable=unsubscriptable-object
             im1 = axes.imshow(lc_matrix[i], animated=True,
-                              vmin=np.percentile(lc_matrix, l), vmax=np.percentile(lc_matrix, h))
+                              vmin=np.percentile(lc_matrix, l), vmax=np.percentile(lc_matrix, h))  # origin="lower" is not used 
             ims.append([im1])
         fig.colorbar(im1, ax=axes, fraction=0.046)    
         ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,

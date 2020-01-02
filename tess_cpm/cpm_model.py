@@ -260,7 +260,7 @@ class CPM(object):
         plt.figure(figsize=(12, 12))
 
         median_image = self.cutout_data.flux_medians
-        print(median_image.shape)
+        # print(median_image.shape)
         plt.imshow(median_image, origin="lower", 
             vmin=np.nanpercentile(median_image, 10),
             vmax=np.nanpercentile(median_image, 90)
@@ -268,7 +268,9 @@ class CPM(object):
         plt.imshow(np.ma.masked_where(self.mask_excluded_pixels==False, self.mask_excluded_pixels), origin="lower", cmap="Set1", alpha=0.5)
         plt.imshow(np.ma.masked_where(self.mask_target_pixel==False, self.mask_target_pixel), origin="lower", cmap="binary", alpha=1.0)
         plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="binary_r", alpha=0.9)
+        plt.title(f"Target Pixel: [{self.target_row}, {self.target_col}]", fontsize=30)
         plt.show()
+        # print(np.sum(np.sum(self.mask_predictor_pixels)))
 
 
         # ax1 = plt.subplot2grid((4, 3), (0, 0), rowspan=2)
