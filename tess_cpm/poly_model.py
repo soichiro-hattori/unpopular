@@ -1,22 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .target_data import TargetData
+from .cutout_data import CutoutData
 
 
 class PolyModel(object):
     """A polynomial model object.
 
     Args:
-        target_data (TargetData): A TargetData instance
+        cutout_data (CutoutData): A cutoutData instance
     """
 
     name = "PolyModel"
 
-    def __init__(self, target_data):
-        if isinstance(target_data, TargetData):
-            self.target_data = target_data
-            self.time = target_data.time
+    def __init__(self, cutout_data):
+        if isinstance(cutout_data, CutoutData):
+            self.cutout_data = cutout_data
+            self.time = cutout_data.time
             self.normalized_time = (
                 self.time - (self.time.max() + self.time.min()) / 2
             ) / (self.time.max() - self.time.min())

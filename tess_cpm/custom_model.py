@@ -1,21 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .target_data import TargetData
+from .cutout_data import CutoutData
 
 class CustomModel(object):
     """A custom model object.
 
     Args:
-        target_data (TargetData): A TargetData instance
+        cutout_data (cutoutData): A cutoutData instance
     """
 
     name = "CustomModel"
 
-    def __init__(self, target_data, flux=None):
-        if isinstance(target_data, TargetData):
-            self.target_data = target_data
-            self.time = target_data.time
+    def __init__(self, cutout_data, flux=None):
+        if isinstance(cutout_data, CutoutData):
+            self.cutout_data = cutout_data
+            self.time = cutout_data.time
         
         self.num_terms = None
         self.m = None
