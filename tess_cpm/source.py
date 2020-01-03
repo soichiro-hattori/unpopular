@@ -147,7 +147,10 @@ class Source(object):
         if show_aperture:
             aperture = self.aperture[rows[0]:rows[-1], cols[0]:cols[-1]]
             plt.imshow(np.ma.masked_where(aperture == False, aperture), origin='lower', cmap='binary', alpha=0.8)
+        fig = plt.gcf()
         plt.show()
+
+        return fig
 
     def plot_pixel(self, row=None, col=None, loc=None):
         """Plot the data (lightcurve) for a specified pixel.
@@ -171,6 +174,7 @@ class Source(object):
                     ax.plot(self.time[::thin], y[::thin], '.', c='k')
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
+        return fig, axs
 
     def get_lc_matrix(self, data_type="cpm_subtracted_flux"):
         rows = np.arange(len(self.models))
@@ -201,7 +205,7 @@ class Source(object):
                 mod.rescale()
 
     def get_outliers(self, data_type="cpm_subtracted_flux", window=50, sigma=5, sigma_upper=None, sigma_lower=None):
-        lc = self.get_aperture_lc(data_type=data_type)
+        lc = self.get_aperture_lc(data_type=data_type, verbose=False)
         if sigma_upper is None:
             sigma_upper = sigma
         if sigma_lower is None:
