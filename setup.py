@@ -9,7 +9,7 @@ setuptools.setup(
     author="Soichiro Hattori",
     author_email="soichiro@nyu.edu",
     url="https://github.com/soichiro-hattori/tess_cpm",
-    license="MIT"
+    license="MIT",
     description="An implementation of the Causal Pixel Model (CPM) for TESS data",
     long_description="readme",
     long_description_content_type="text/markdown",
