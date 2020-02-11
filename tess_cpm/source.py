@@ -28,18 +28,18 @@ class Source(object):
         self.split_fluxes = None
         self.split_detrended_lcs = None
 
-    def set_aperture(self, rowrange=[49, 52], colrange=[49, 52]):
+    def set_aperture(self, rowlims=[49, 51], collims=[49, 51]):
         self.models = []
         self.fluxes = []
         apt = np.full(self.cutout_data.fluxes[0].shape, False)
         # print("Assuming you're interested in the central set of pixels")
-        apt[rowrange[0]:rowrange[1], colrange[0]:colrange[1]] = True
+        apt[rowlims[0]:rowlims[1]+1, collims[0]:collims[1]+1] = True
 
         self.aperture = apt
-        for row in range(rowrange[0], rowrange[1]):
+        for row in range(rowlims[0], rowlims[1]+1):
             row_models = []
             row_fluxes = []
-            for col in range(colrange[0], colrange[1]):
+            for col in range(collims[0], collims[1]+1):
                 row_models.append(PixelModel(self.cutout_data, row, col))
                 row_fluxes.append(self.cutout_data.normalized_fluxes[:, row, col])
             self.models.append(row_models)
@@ -118,18 +118,18 @@ class Source(object):
         self.rescale()
         return (times, fluxes, predictions)
 
-    def plot_cutout(self, rowrange=None, colrange=None, l=10, h=90, show_aperture=False, projection=None):
-        if rowrange is None:
+    def plot_cutout(self, rowlims=None, collims=None, l=10, h=90, show_aperture=False, projection=None):
+        if rowlims is None:
             rows = [0, self.cutout_data.cutout_sidelength]
         else:
-            rows = rowrange
+            rows = rowlims
 
-        if colrange is None:
+        if collims is None:
             cols = [0, self.cutout_data.cutout_sidelength]
         else:
-            cols = colrange
+            cols = collims
         full_median_image = self.cutout_data.flux_medians
-        median_image = self.cutout_data.flux_medians[rows[0]:rows[-1], cols[0]:cols[-1]]
+        median_image = self.cutout_data.flux_medians[rows[0]:rows[-1]+1, cols[0]:cols[-1]+1]
         if projection == "wcs":
             projection = self.cutout_data.wcs_info
         plt.subplot(111, projection=projection)
@@ -139,13 +139,13 @@ class Source(object):
             vmin=np.percentile(full_median_image, l),
             vmax=np.percentile(full_median_image, h),
         )
-        if rowrange is not None:
-            plt.yticks(np.arange(rowrange[-1]-rowrange[0]), labels=[str(i) for i in np.arange(rows[0], rows[-1])])
-        if colrange is not None:
-            plt.xticks(np.arange(colrange[-1]-colrange[0]), labels=[str(i) for i in np.arange(cols[0], cols[-1])])
+        if rowlims is not None:
+            plt.yticks(np.arange(rowlims[-1]+1-rowlims[0]), labels=[str(i) for i in np.arange(rows[0], rows[-1]+1)])
+        if collims is not None:
+            plt.xticks(np.arange(collims[-1]+1-collims[0]), labels=[str(i) for i in np.arange(cols[0], cols[-1]+1)])
 
         if show_aperture:
-            aperture = self.aperture[rows[0]:rows[-1], cols[0]:cols[-1]]
+            aperture = self.aperture[rows[0]:rows[-1]+1, cols[0]:cols[-1]+1]
             plt.imshow(np.ma.masked_where(aperture == False, aperture), origin='lower', cmap='binary', alpha=0.8)
         fig = plt.gcf()
         plt.show()

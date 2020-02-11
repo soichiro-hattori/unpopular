@@ -231,6 +231,8 @@ class PixelModel(object):
                 m_poly, param_poly = m[:, self.cpm.num_predictor_pixels :], param[self.cpm.num_predictor_pixels :]
                 self.split_poly_model_prediction.append(np.dot(m_poly, param_poly))
         self.split_cpm_subtracted_flux = [y-cpm for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]
+        # self.split_cpm_subtracted_flux = [y-cpm-param_poly[0] for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]  # just to fix plot for presentation
+
         self.cpm_subtracted_flux = np.concatenate(self.split_cpm_subtracted_flux)
         self.cpm_prediction = np.concatenate(self.split_cpm_prediction)
         if self.poly_model is not None:
@@ -251,5 +253,5 @@ class PixelModel(object):
         self.rescaled_cpm_subtracted_flux = (self.cpm_subtracted_flux + 1) * self.median
 
     def plot_model(self):
-        self.cpm.plot_model()
+        return self.cpm.plot_model()
 

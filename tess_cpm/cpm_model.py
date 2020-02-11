@@ -257,7 +257,7 @@ class CPM(object):
 
     def plot_model(self):
 
-        plt.figure(figsize=(12, 12))
+        # plt.figure(figsize=(12, 12))
 
         median_image = self.cutout_data.flux_medians
         # print(median_image.shape)
@@ -267,9 +267,13 @@ class CPM(object):
             )
         plt.imshow(np.ma.masked_where(self.mask_excluded_pixels==False, self.mask_excluded_pixels), origin="lower", cmap="Set1", alpha=0.5)
         plt.imshow(np.ma.masked_where(self.mask_target_pixel==False, self.mask_target_pixel), origin="lower", cmap="binary", alpha=1.0)
-        plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="binary_r", alpha=0.9)
-        plt.title(f"Target Pixel: [{self.target_row}, {self.target_col}]", fontsize=30)
+        # plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="binary_r", alpha=0.9)
+        plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="Set1", alpha=0.9)
+
+        # plt.title(f"Target Pixel: [{self.target_row}, {self.target_col}]", fontsize=30)
+        fig = plt.gcf()
         plt.show()
+        return fig
         # print(np.sum(np.sum(self.mask_predictor_pixels)))
 
 
