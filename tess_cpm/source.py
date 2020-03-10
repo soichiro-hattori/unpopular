@@ -15,9 +15,9 @@ class Source(object):
 
     """
 
-    def __init__(self, path, remove_bad=True, verbose=True, provenance='TessCut'):
+    def __init__(self, path, remove_bad=True, verbose=True, provenance='TessCut', quality=None):
         self.provenance = provenance
-        self.cutout_data = CutoutData(path, remove_bad, verbose, self.provenance)
+        self.cutout_data = CutoutData(path, remove_bad, verbose, self.provenance, quality)
         self.time = self.cutout_data.time
         self.aperture = None
         self.models = None

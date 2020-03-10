@@ -17,7 +17,7 @@ class CutoutData(object):
 
     """
 
-    def __init__(self, path, remove_bad=True, verbose=True, provenance='TessCut'):
+    def __init__(self, path, remove_bad=True, verbose=True, provenance='TessCut', quality=None):
         self.file_path = path
         self.file_name = path.split("/")[-1]
         
@@ -31,7 +31,10 @@ class CutoutData(object):
                 self.time = hdu[1].data["TIME"]
                 self.fluxes = hdu[1].data["FLUX"]
                 self.flux_errors = hdu[1].data["FLUX_ERR"]
-                self.quality = hdu[1].data["QUALITY"]
+                if quality is None:
+                    self.quality = hdu[1].data["QUALITY"]
+                else:
+                    self.quality = quality
                 try:
                     self.wcs_info = WCS(hdu[2].header)  # pylint: disable=no-member
                 except Exception as inst:
@@ -47,7 +50,10 @@ class CutoutData(object):
                 self.time = (hdu[1].data['TSTART'] + hdu[1].data['TSTOP'])/2
                 self.fluxes = hdu[2].data
                 self.flux_errors = hdu[3].data
-                self.quality = hdu[1].data['QUALITY']
+                if quality is None:
+                    self.quality = hdu[1].data['QUALITY']
+                else:
+                    self.quality = quality
 
                 try:
                     self.wcs_info = WCS(hdu[2].header)  # pylint: disable=no-member
