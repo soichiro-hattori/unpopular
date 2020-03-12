@@ -234,12 +234,17 @@ class Source(object):
             aperture_lc = np.zeros_like(self.split_times)
         else:
             aperture_lc = np.zeros_like(self.time)
+        medvals = np.zeros((len(rows), len(cols)))
+        for r in rows:
+            for c in cols:
+                medvals[r][c] = self.models[r][c].cpm.target_median
+        medvals /= np.nansum(medvals)
         for r in rows:
             for c in cols:
                 if split:
-                    aperture_lc += self.models[r][c].split_values_dict[data_type]
+                    aperture_lc += medvals[r][c]*self.models[r][c].split_values_dict[data_type]
                 else:
-                    aperture_lc += self.models[r][c].values_dict[data_type]
+                    aperture_lc += medvals[r][c]*self.models[r][c].values_dict[data_type]
         return aperture_lc
 
     def _calc_cdpp(self, flux, **kwargs):
