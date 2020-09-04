@@ -11,3 +11,7 @@
 generated_plots/
 .ipynb_checkpoints/
 summary_plots/
+TIC176956893/
+build/
+dist/
+tess_cpm.egg-info/
