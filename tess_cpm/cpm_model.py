@@ -102,13 +102,15 @@ class CPM(object):
         r = self.target_row  # just to reduce verbosity for this function
         c = self.target_col
         self.exclusion_size = exclusion_size
-        sidelength = self.cutout_data.cutout_sidelength
+        sidelength_x = self.cutout_data.cutout_sidelength_x
+        sidelength_y = self.cutout_data.cutout_sidelength_y
+        
 
         excluded_pixels = np.full(self.cutout_data.fluxes[0].shape, False)
         if method == "closest":
             excluded_pixels[
-                max(0, r - exclusion_size) : min(r + exclusion_size + 1, sidelength),
-                max(0, c - exclusion_size) : min(c + exclusion_size + 1, sidelength),
+                max(0, r - exclusion_size) : min(r + exclusion_size + 1, sidelength_x),
+                max(0, c - exclusion_size) : min(c + exclusion_size + 1, sidelength_y),
             ] = True
         if method == "cross":
             excluded_pixels[
@@ -163,10 +165,12 @@ class CPM(object):
 
         self.method_choose_predictor_pixels = method
         self.num_predictor_pixels = n
-        sidelength = self.cutout_data.cutout_sidelength
+        sidelength_x = self.cutout_data.cutout_sidelength_x
+        sidelength_y = self.cutout_data.cutout_sidelength_y
+        
 
         # I'm going to do this in 1D by assinging individual pixels a single index instead of two.
-        coordinate_idx = np.arange(sidelength ** 2)
+        coordinate_idx = np.arange(sidelength_x * sidelength_y)
         valid_idx = coordinate_idx[~self.mask_excluded_pixels.ravel()]
         # valid_idx = coordinate_idx[self.excluded_pixels_mask.mask.ravel()]
 
@@ -193,7 +197,7 @@ class CPM(object):
             chosen_idx = valid_idx[np.argsort(diff)[0:n]]
 
         self.locations_predictor_pixels = np.array(
-            [[idx // sidelength, idx % sidelength] for idx in chosen_idx]
+            [[idx // sidelength_y, idx % sidelength_y] for idx in chosen_idx]
         )
         loc = self.locations_predictor_pixels.T
         mask = np.full(self.cutout_data.fluxes[0].shape, False)

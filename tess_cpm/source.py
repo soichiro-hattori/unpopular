@@ -15,8 +15,9 @@ class Source(object):
 
     """
 
-    def __init__(self, path, remove_bad=True, verbose=True):
-        self.cutout_data = CutoutData(path, remove_bad, verbose)
+    def __init__(self, path, remove_bad=True, verbose=True, provenance='TessCut', quality=None):
+        self.provenance = provenance
+        self.cutout_data = CutoutData(path, remove_bad, verbose, self.provenance, quality)
         self.time = self.cutout_data.time
         self.aperture = None
         self.models = None
@@ -27,6 +28,7 @@ class Source(object):
         self.split_predictions = None
         self.split_fluxes = None
         self.split_detrended_lcs = None
+
 
     def set_aperture(self, rowlims=[49, 51], collims=[49, 51]):
         self.models = []
@@ -120,12 +122,12 @@ class Source(object):
 
     def plot_cutout(self, rowlims=None, collims=None, l=10, h=90, show_aperture=False, projection=None):
         if rowlims is None:
-            rows = [0, self.cutout_data.cutout_sidelength]
+            rows = [0, self.cutout_data.cutout_sidelength_x]
         else:
             rows = rowlims
 
         if collims is None:
-            cols = [0, self.cutout_data.cutout_sidelength]
+            cols = [0, self.cutout_data.cutout_sidelength_y]
         else:
             cols = collims
         full_median_image = self.cutout_data.flux_medians
@@ -232,12 +234,17 @@ class Source(object):
             aperture_lc = np.zeros_like(self.split_times)
         else:
             aperture_lc = np.zeros_like(self.time)
+        medvals = np.zeros((len(rows), len(cols)))
+        for r in rows:
+            for c in cols:
+                medvals[r][c] = self.models[r][c].cpm.target_median
+        medvals /= np.nansum(medvals)
         for r in rows:
             for c in cols:
                 if split:
-                    aperture_lc += self.models[r][c].split_values_dict[data_type]
+                    aperture_lc += medvals[r][c]*self.models[r][c].split_values_dict[data_type]
                 else:
-                    aperture_lc += self.models[r][c].values_dict[data_type]
+                    aperture_lc += medvals[r][c]*self.models[r][c].values_dict[data_type]
         return aperture_lc
 
     def _calc_cdpp(self, flux, **kwargs):
