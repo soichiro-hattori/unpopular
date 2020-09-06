@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import lightkurve as lc
+import lightkurve as lk
 from scipy.ndimage import median_filter
 
 from .cutout_data import CutoutData
@@ -155,7 +155,7 @@ class Source(object):
         return fig
 
     def plot_pixel(self, row=None, col=None, loc=None):
-        """Plot the data (lightcurve) for a specified pixel.
+        """Plot the data (light curve) for a specified pixel.
         """
         flux = self.cutout_data.fluxes[:, row, col]
         plt.plot(self.cutout_data.time, flux, ".")
@@ -255,7 +255,7 @@ class Source(object):
         return aperture_lc
 
     def _calc_cdpp(self, flux, **kwargs):
-        return lc.TessLightCurve(flux=flux+1).estimate_cdpp(**kwargs)
+        return lk.TessLightCurve(flux=flux+1).estimate_cdpp(**kwargs)
 
     def calc_min_cpm_reg(self, cpm_regs, k, mask=None, **kwargs):
         cdpps = np.zeros((cpm_regs.size, k))

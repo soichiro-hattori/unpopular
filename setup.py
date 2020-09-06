@@ -7,11 +7,19 @@ setuptools.setup(
     name="tess_cpm",
     version="0.0.1",
     author="Soichiro Hattori",
-    author_email="soichiro@nyu.edu",
+    author_email="soichiro.hattori@gmail.com",
     url="https://github.com/soichiro-hattori/tess_cpm",
     license="MIT",
     description="An implementation of the Causal Pixel Model (CPM) for TESS data",
     long_description="readme",
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
+    install_requires=[
+        "numpy",
+        "matplotlib",
+        "scipy",
+        "astropy",
+        "astroquery",
+        "scikit-learn",
+    ]
 )
