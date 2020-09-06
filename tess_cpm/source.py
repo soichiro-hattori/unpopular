@@ -225,7 +225,7 @@ class Source(object):
             outliers += out
         return outliers
 
-    def get_aperture_lc(self, data_type="raw", split=False, verbose=True):
+    def get_aperture_lc(self, data_type="raw", weighting="median", split=False, verbose=True):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         if verbose:
@@ -242,9 +242,16 @@ class Source(object):
         for r in rows:
             for c in cols:
                 if split:
-                    aperture_lc += medvals[r][c]*self.models[r][c].split_values_dict[data_type]
+                    if weighting == "median":
+                        aperture_lc += medvals[r][c]*self.models[r][c].split_values_dict[data_type]
+                    elif weighting == None:
+                        aperture_lc += self.models[r][c].split_values_dict[data_type]         
                 else:
-                    aperture_lc += medvals[r][c]*self.models[r][c].values_dict[data_type]
+                    if weighting == "median":
+                        aperture_lc += medvals[r][c]*self.models[r][c].values_dict[data_type]
+                    elif weighting == None:
+                        aperture_lc += self.models[r][c].values_dict[data_type]
+
         return aperture_lc
 
     def _calc_cdpp(self, flux, **kwargs):
