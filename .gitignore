@@ -1,3 +1,4 @@
+# File formats to ignore
 *.zip
 *.png
 *.fits
@@ -8,6 +9,10 @@
 *.tex
 *.csv
 
+# Specific files to ignore
+miscellaneous.ipynb
+
+# directories to ignore
 generated_plots/
 .ipynb_checkpoints/
 summary_plots/
