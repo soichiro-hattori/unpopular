@@ -38,10 +38,10 @@ class PolyModel(object):
         calling the ``numpy.vander()`` method.
 
         Args:
-            scale (Optional[float]): Sets the min and max value of the input vector to pass to ``numpy.vander``.
+            scale (Optional[float]): Scales the input vector to pass to ``numpy.vander``.
                 The larger this value, the more flexibility the polynomial model will have for a given number of powers.
-            poly_terms (Optional[int]): Specify the number of "powers" to use in the polynomial model.
-                As the first power is a constant, the highest power is ``poly_terms - 1``. 
+            num_terms (Optional[int]): Specify the number of "powers" to use in the polynomial model.
+                As the first power is a constant, the highest power is ``num_terms - 1``. 
 
         """
         self.scale = scale
