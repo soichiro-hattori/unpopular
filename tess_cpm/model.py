@@ -61,12 +61,12 @@ class PixelModel(object):
     @property
     def split_values_dict(self):
         return {
-            "raw" : np.array([(split_flux + 1) * self.median for split_flux in self.split_fluxes]),
-            "normalized_flux" : np.array(self.split_fluxes),
-            "cpm_prediction" : np.array(self.split_cpm_prediction),
-            "poly_model_prediction" : np.array(self.split_poly_model_prediction),
-            "cpm_subtracted_flux" : np.array(self.split_cpm_subtracted_flux),
-            "rescaled_cpm_subtracted_flux" : np.array(self.split_rescaled_cpm_subtracted_flux)
+            "raw" : np.array([(split_flux + 1) * self.median for split_flux in self.split_fluxes], dtype=object),
+            "normalized_flux" : np.array(self.split_fluxes, dtype=object),
+            "cpm_prediction" : np.array(self.split_cpm_prediction, dtype=object),
+            "poly_model_prediction" : np.array(self.split_poly_model_prediction, dtype=object),
+            "cpm_subtracted_flux" : np.array(self.split_cpm_subtracted_flux, dtype=object),
+            "rescaled_cpm_subtracted_flux" : np.array(self.split_rescaled_cpm_subtracted_flux, dtype=object)
         }
 
     def add_cpm_model(
