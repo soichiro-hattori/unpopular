@@ -21,5 +21,6 @@ setuptools.setup(
         "astropy",
         "astroquery",
         "scikit-learn",
+        "lightkurve"
     ]
 )
