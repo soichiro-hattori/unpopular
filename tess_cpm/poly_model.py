@@ -19,7 +19,7 @@ class PolyModel(object):
             self.time = cutout_data.time
             self.normalized_time = (
                 self.time - (self.time.max() + self.time.min()) / 2
-            ) / (self.time.max() - self.time.min())
+            ) / (self.time.max() - self.time.min())  # Mean Normalization
 
         self.scale = None
         self.input_vector = None
@@ -46,8 +46,10 @@ class PolyModel(object):
         """
         self.scale = scale
         self.input_vector = scale * self.normalized_time
-        self.num_terms = num_terms
-        self.m = np.vander(self.input_vector, N=num_terms, increasing=True)
+        self.num_terms = num_terms  # With constant
+        self.m = np.vander(self.input_vector, N=num_terms, increasing=True)  # With constant
+        # self.num_terms = num_terms - 1  # Without constant
+        # self.m = np.delete(np.vander(self.input_vector, N=num_terms, increasing=True), 0, 1)  # Without constant
 
     def set_L2_reg(self, reg):
         """Set the L2-regularization for the polynomial model.

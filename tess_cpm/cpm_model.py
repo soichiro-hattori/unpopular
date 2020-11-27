@@ -114,18 +114,18 @@ class CPM(object):
             ] = True
         if method == "cross":
             excluded_pixels[
-                max(0, r - exclusion_size) : min(r + exclusion_size + 1, sidelength), :
+                max(0, r - exclusion_size) : min(r + exclusion_size + 1, sidelength_x), :
             ] = True
             excluded_pixels[
-                :, max(0, c - exclusion_size) : min(c + exclusion_size + 1, sidelength)
+                :, max(0, c - exclusion_size) : min(c + exclusion_size + 1, sidelength_y)
             ] = True
         if method == "row_exclude":
             excluded_pixels[
-                max(0, r - exclusion_size) : min(r + exclusion_size + 1, sidelength), :
+                max(0, r - exclusion_size) : min(r + exclusion_size + 1, sidelength_x), :
             ] = True
         if method == "col_exclude":
             excluded_pixels[
-                :, max(0, c - exclusion_size) : min(c + exclusion_size + 1, sidelength)
+                :, max(0, c - exclusion_size) : min(c + exclusion_size + 1, sidelength_y)
             ] = True
 
         self.mask_excluded_pixels = excluded_pixels
@@ -151,7 +151,7 @@ class CPM(object):
                 "random": Randomly choose ``n`` predictor pixels.
                 "similar_brightness": Choose ``n`` predictor pixels based on how close a given pixel's median brightness 
                     is to the target pixel's median brightness. This method potentially chooses variable pixels which
-                    probably is not ideal. 
+                    is not ideal. 
             seed (Optional[int]): The seed passed to ``np.random.seed`` to be able to reproduce predictor pixels using 
                 the "random" method. The other methods are deterministic and are always reproducible.
         """
@@ -259,25 +259,32 @@ class CPM(object):
         self.prediction = prediction
         return prediction
 
-    def plot_model(self):
+    def plot_model(self, size_predictors=10):
+
+        fig, ax = plt.subplots()
+        self._plot_model_onto_axes(ax, size_predictors=size_predictors)
+        plt.show()
+        return fig, ax
 
         # plt.figure(figsize=(12, 12))
 
-        median_image = self.cutout_data.flux_medians
-        # print(median_image.shape)
-        plt.imshow(median_image, origin="lower", 
-            vmin=np.nanpercentile(median_image, 10),
-            vmax=np.nanpercentile(median_image, 90)
-            )
-        plt.imshow(np.ma.masked_where(self.mask_excluded_pixels==False, self.mask_excluded_pixels), origin="lower", cmap="Set1", alpha=0.5)
-        plt.imshow(np.ma.masked_where(self.mask_target_pixel==False, self.mask_target_pixel), origin="lower", cmap="binary", alpha=1.0)
-        # plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="binary_r", alpha=0.9)
-        plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="Set1", alpha=0.9)
+        # median_image = self.cutout_data.flux_medians
+        # # print(median_image.shape)
+        # plt.imshow(median_image, origin="lower", 
+        #     vmin=np.nanpercentile(median_image, 10),
+        #     vmax=np.nanpercentile(median_image, 90)
+        #     )
+        # plt.imshow(np.ma.masked_where(self.mask_excluded_pixels==False, self.mask_excluded_pixels), origin="lower", cmap="Set1", alpha=0.5)
+        # plt.imshow(np.ma.masked_where(self.mask_target_pixel==False, self.mask_target_pixel), origin="lower", cmap="binary", alpha=1.0)
+        # # plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="binary_r", alpha=0.9)
+        # plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="Set1", alpha=0.9)
 
-        # plt.title(f"Target Pixel: [{self.target_row}, {self.target_col}]", fontsize=30)
-        fig = plt.gcf()
-        plt.show()
-        return fig
+        # # plt.title(f"Target Pixel: [{self.target_row}, {self.target_col}]", fontsize=30)
+        # fig = plt.gcf()
+        # ax = plt.gca()
+        # plt.show()
+        # return fig, ax
+
         # print(np.sum(np.sum(self.mask_predictor_pixels)))
 
 
@@ -318,3 +325,17 @@ class CPM(object):
         # ax3.imshow(cpm.target_pixel_mask, origin="lower", cmap="binary", alpha=1.0)
         # ax3.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
         # ax3.imshow(top_n_mask, origin="lower", cmap="Set1")
+
+    def _plot_model_onto_axes(self, ax, size_predictors=10):
+
+        median_image = self.cutout_data.flux_medians
+        ax.imshow(median_image, origin="lower", 
+            vmin=np.nanpercentile(median_image, 10),
+            vmax=np.nanpercentile(median_image, 90)
+            )
+        ax.imshow(np.ma.masked_where(self.mask_excluded_pixels==False, self.mask_excluded_pixels), origin="lower", cmap="Set1", alpha=0.5)
+        # ax.imshow(np.ma.masked_where(self.mask_target_pixel==False, self.mask_target_pixel), origin="lower", cmap="binary", alpha=1.0)
+        ax.scatter(self.target_col, self.target_row, marker="*", color="w", s=15, alpha=1.0)
+        # ax.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="Set1", alpha=0.9)
+        predictor_locs = self.locations_predictor_pixels.T 
+        ax.scatter(predictor_locs[1], predictor_locs[0], marker="o", color="C3", s=size_predictors, alpha=0.9)  # pylint: disable=unsubscriptable-object

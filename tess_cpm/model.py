@@ -1,5 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import lightkurve as lk
+from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import KFold
 
 from .cutout_data import CutoutData
@@ -29,9 +31,11 @@ class PixelModel(object):
         self.reg_matrix = None
         self.design_matrix = None
         self.params = None
+        self.param_matrix = None
         self.prediction = None
         self.cpm_prediction = None
         self.poly_model_prediction = None
+        self.intercept_prediction = None
         self.cpm_subtracted_flux = None
         self.rescaled_cpm_subtracted_flux = None
         self.split_time = []
@@ -39,12 +43,13 @@ class PixelModel(object):
         self.split_prediction = []
         self.split_cpm_prediction = []
         self.split_poly_model_prediction = []
+        self.split_intercept_prediction = []
         self.split_custom_model_prediction = []
         self.split_cpm_subtracted_flux = []
         self.split_rescaled_cpm_subtracted_flux = []
 
     @property
-    def models(self):
+    def model_components(self):
         return list(filter(bool, [self.cpm, self.poly_model, self.custom_model]))
     
     @property
@@ -54,6 +59,7 @@ class PixelModel(object):
             "normalized_flux" : self.norm_flux,
             "cpm_prediction" : self.cpm_prediction,
             "poly_model_prediction" : self.poly_model_prediction,
+            "intercept_prediction" : self.intercept_prediction,
             "cpm_subtracted_flux" : self.cpm_subtracted_flux,
             "rescaled_cpm_subtracted_flux" : self.rescaled_cpm_subtracted_flux
         }
@@ -65,6 +71,7 @@ class PixelModel(object):
             "normalized_flux" : np.array(self.split_fluxes, dtype=object),
             "cpm_prediction" : np.array(self.split_cpm_prediction, dtype=object),
             "poly_model_prediction" : np.array(self.split_poly_model_prediction, dtype=object),
+            "intercept_prediction" : np.array(self.split_intercept_prediction, dtype=object),
             "cpm_subtracted_flux" : np.array(self.split_cpm_subtracted_flux, dtype=object),
             "rescaled_cpm_subtracted_flux" : np.array(self.split_rescaled_cpm_subtracted_flux, dtype=object)
         }
@@ -108,13 +115,13 @@ class PixelModel(object):
         self.custom_model = None
 
     def set_regs(self, regs=[], verbose=True):
-        if len(regs) != len(self.models):
+        if len(regs) != len(self.model_components):
             print(
-                "You need to specify the same number of regularization parameters as the number of models."
+                "You need to specify the same number of regularization parameters as the number of model components."
             )
             return
         self.regs = regs
-        for reg, model in zip(self.regs, self.models):
+        for reg, model in zip(self.regs, self.model_components):
             if verbose:
                 print(f"Setting {model.name}'s regularization to {reg}")
             model.set_L2_reg(reg)
@@ -123,14 +130,14 @@ class PixelModel(object):
 
     def _create_reg_matrix(self):
         r = []
-        for mod in self.models:
+        for mod in self.model_components:
             r.append(np.repeat(mod.reg, mod.reg_matrix.shape[0]))
         r = np.hstack(r)
         self.reg_matrix = r * np.identity(r.size)
 
     def _create_design_matrix(self):
         design_matrices = []
-        for mod in self.models:
+        for mod in self.model_components:
             design_matrices.append(mod.m)
         self.design_matrix = np.hstack((design_matrices))
 
@@ -230,6 +237,7 @@ class PixelModel(object):
             if self.poly_model is not None:
                 m_poly, param_poly = m[:, self.cpm.num_predictor_pixels :], param[self.cpm.num_predictor_pixels :]
                 self.split_poly_model_prediction.append(np.dot(m_poly, param_poly))
+                self.split_intercept_prediction.append(np.multiply(m_poly[:,0], param_poly[0]))
         self.split_cpm_subtracted_flux = [y-cpm for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]
         # self.split_cpm_subtracted_flux = [y-cpm-param_poly[0] for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]  # just to fix plot for presentation
 
@@ -237,6 +245,8 @@ class PixelModel(object):
         self.cpm_prediction = np.concatenate(self.split_cpm_prediction)
         if self.poly_model is not None:
             self.poly_model_prediction = np.concatenate(self.split_poly_model_prediction)
+            self.intercept_prediction = np.concatenate(self.split_intercept_prediction)
+        self.param_matrix = param_matrix
         return (times, y_tests, predictions)
 
     def _reset_values(self):
@@ -245,6 +255,7 @@ class PixelModel(object):
         self.split_prediction = []
         self.split_cpm_prediction = []
         self.split_poly_model_prediction = []
+        self.split_intercept_prediction = []
         self.split_custom_model_prediction = []
         self.split_cpm_subtracted_flux = []
 
@@ -252,6 +263,52 @@ class PixelModel(object):
         self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]
         self.rescaled_cpm_subtracted_flux = (self.cpm_subtracted_flux + 1) * self.median
 
-    def plot_model(self):
-        return self.cpm.plot_model()
+    def plot_model(self, size_predictors=2):
+        return self.cpm.plot_model(size_predictors=size_predictors)
 
+    def summary_plot(self, figsize=(16, 5.5), zeroing=True, size_predictors=10):
+        fig = plt.figure(figsize=figsize)
+        gs = GridSpec(2, 5, hspace=0)
+
+        ax1 = fig.add_subplot(gs[:2, :2])
+        ax2 = fig.add_subplot(gs[0, 2:5])
+        ax3 = fig.add_subplot(gs[1, 2:5])
+
+        self.cpm._plot_model_onto_axes(ax1, size_predictors=size_predictors)
+        ax1.set_xticks(np.arange(0, 100, 10))
+        ax1.set_yticks(np.arange(0, 100, 10))
+        ax1.set_xlabel("Pixel Column Number", fontsize=18)
+        ax1.set_ylabel("Pixel Row Number", fontsize=18)
+        ax1.tick_params(labelsize=15)
+        for axis in ['top','bottom','left','right']:
+            ax1.spines[axis].set_linewidth(1.5)
+        
+        ax2.plot(self.time, self.norm_flux, "k.", ms=5, alpha=0.2)
+        
+        if zeroing:
+            y_ax2 = self.cpm_prediction + self.intercept_prediction
+            y_ax3 = self.cpm_subtracted_flux - self.intercept_prediction
+        else:
+            y_ax2 = self.cpm_prediction
+            y_ax3 = self.cpm_subtracted_flux
+
+        ax2.plot(self.time, y_ax2, "C3-", lw=1.5, alpha=0.6)
+        ax3.plot(self.time, y_ax3, "k.", ms=5, alpha=0.2)
+
+        ax2.tick_params(labelsize=13)
+        for axis in ['top','bottom','left','right']:
+            ax2.spines[axis].set_linewidth(1.5)
+        ax3.tick_params(labelsize=13)
+        for axis in ['top','bottom','left','right']:
+            ax3.spines[axis].set_linewidth(1.5)
+
+
+        # ax_label.set_ylabel("Normalized Flux [unitless]", fontsize=12)
+        # ax_label.set_xlabel("Time - 2457000 [Days]", fontsize=12)
+        # ax3.set_ylabel("Normalized Flux [unitless]", fontsize=12)
+
+        ax3.set_xlabel("Time - 2457000 [Days]", fontsize=18)
+        fig.text(0.405, 0.5, "Normalized Flux [unitless]", fontsize=18, rotation="vertical", va="center")
+
+        plt.show()
+        return fig, [ax1, ax2, ax3]

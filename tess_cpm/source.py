@@ -160,7 +160,7 @@ class Source(object):
         flux = self.cutout_data.fluxes[:, row, col]
         plt.plot(self.cutout_data.time, flux, ".")
 
-    def plot_pix_by_pix(self, data_type="raw", split=False, figsize=(12, 8), thin=1):
+    def plot_pix_by_pix(self, data_type="raw", split=False, figsize=(12, 8), thin=1, marker=".", ms=1):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=figsize, squeeze=False)
@@ -170,10 +170,10 @@ class Source(object):
                 if split:
                     yy = self.models[r][c].split_values_dict[data_type]
                     for time, y in zip(self.split_times, yy):
-                        ax.plot(time[::thin], y[::thin], '.')
+                        ax.plot(time[::thin], y[::thin], marker, ms=ms)
                 else:
                     y = self.models[r][c].values_dict[data_type]
-                    ax.plot(self.time[::thin], y[::thin], '.', c='k')
+                    ax.plot(self.time[::thin], y[::thin], marker, ms=ms, color='k')
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
         return fig, axs

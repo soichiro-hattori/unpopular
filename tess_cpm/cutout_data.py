@@ -43,9 +43,9 @@ class CutoutData(object):
         
         elif provenance == 'eleanor':
             with fits.open(path, mode="readonly") as hdu:
-                self.sector = int(hdu[2].header["SECTOR"])
-                self.camera = int(hdu[2].header["CAMERA"])
-                self.ccd    = int(hdu[2].header["CCD"])
+                self.sector = int(hdu[2].header["SECTOR"])  # pylint: disable=no-member
+                self.camera = int(hdu[2].header["CAMERA"])  # pylint: disable=no-member
+                self.ccd    = int(hdu[2].header["CCD"])  # pylint: disable=no-member
 
                 self.time = (hdu[1].data['TSTART'] + hdu[1].data['TSTOP'])/2
                 self.fluxes = hdu[2].data
@@ -86,7 +86,7 @@ class CutoutData(object):
         self.flattened_flux_medians = self.flux_medians.reshape(
             self.cutout_sidelength_x * self.cutout_sidelength_y
         )
-        # We rescale the fluxes by dividing by the mean and then centering them around zero.
+        # We rescale the fluxes by dividing by the median and then centering them around zero.
         self.normalized_fluxes = (self.fluxes / self.flux_medians) - 1
         self.flattened_normalized_fluxes = self.normalized_fluxes.reshape(
             self.time.shape[0], 

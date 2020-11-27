@@ -11,6 +11,7 @@
 
 # Specific files to ignore
 miscellaneous.ipynb
+plots.ipynb
 
 # directories to ignore
 generated_plots/
