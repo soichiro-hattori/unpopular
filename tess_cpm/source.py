@@ -162,7 +162,8 @@ class Source(object):
         plt.plot(self.cutout_data.time, flux, ".")
 
     def plot_pix_by_pix(self, data_type="raw", split=False, show_locations=True,
-                        show_labels=True, figsize=(12, 8), thin=1, marker=".", ms=1, yaxis_nbins=6):
+                        show_labels=True, figsize=(12, 8), thin=1, marker=".", ms=1,
+                        yaxis_nbins=6, y_label_x_loc = 0.065):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=figsize, squeeze=False)

@@ -237,7 +237,7 @@ class PixelModel(object):
             if self.poly_model is not None:
                 m_poly, param_poly = m[:, self.cpm.num_predictor_pixels :], param[self.cpm.num_predictor_pixels :]
                 self.split_poly_model_prediction.append(np.dot(m_poly, param_poly))
-                self.split_intercept_prediction.append(np.multiply(m_poly[:,0], param_poly[0]))
+                self.split_intercept_prediction.append(np.multiply(m_poly[:,-1], param_poly[-1]))
         self.split_cpm_subtracted_flux = [y-cpm for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]
         # self.split_cpm_subtracted_flux = [y-cpm-param_poly[0] for y, cpm in zip(self.split_fluxes, self.split_cpm_prediction)]  # just to fix plot for presentation
 
@@ -277,8 +277,8 @@ class PixelModel(object):
         self.cpm._plot_model_onto_axes(ax1, size_predictors=size_predictors)
         ax1.set_xticks(np.arange(0, 100, 10))
         ax1.set_yticks(np.arange(0, 100, 10))
-        ax1.set_xlabel("Pixel Column Number", fontsize=18)
-        ax1.set_ylabel("Pixel Row Number", fontsize=18)
+        ax1.set_xlabel("Pixel Column Number", fontsize=15)
+        ax1.set_ylabel("Pixel Row Number", fontsize=15)
         ax1.tick_params(labelsize=15)
         for axis in ['top','bottom','left','right']:
             ax1.spines[axis].set_linewidth(1.5)
@@ -292,13 +292,13 @@ class PixelModel(object):
             y_ax2 = self.cpm_prediction
             y_ax3 = self.cpm_subtracted_flux
 
-        ax2.plot(self.time, y_ax2, "C3-", lw=1.5, alpha=0.6)
+        ax2.plot(self.time, y_ax2, "C3-", lw=1.5, alpha=0.7)
         ax3.plot(self.time, y_ax3, "k.", ms=5, alpha=0.2)
 
-        ax2.tick_params(labelsize=13)
+        ax2.tick_params(labelsize=10)
         for axis in ['top','bottom','left','right']:
             ax2.spines[axis].set_linewidth(1.5)
-        ax3.tick_params(labelsize=13)
+        ax3.tick_params(labelsize=10)
         for axis in ['top','bottom','left','right']:
             ax3.spines[axis].set_linewidth(1.5)
 
@@ -307,8 +307,8 @@ class PixelModel(object):
         # ax_label.set_xlabel("Time - 2457000 [Days]", fontsize=12)
         # ax3.set_ylabel("Normalized Flux [unitless]", fontsize=12)
 
-        ax3.set_xlabel("Time - 2457000 [Days]", fontsize=18)
-        fig.text(0.405, 0.5, "Normalized Flux [unitless]", fontsize=18, rotation="vertical", va="center")
+        ax3.set_xlabel("Time - 2457000 [Days]", fontsize=15)
+        fig.text(0.405, 0.5, "Normalized Flux [unitless]", fontsize=15, rotation="vertical", va="center")
 
         plt.show()
         return fig, [ax1, ax2, ax3]

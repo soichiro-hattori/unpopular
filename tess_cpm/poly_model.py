@@ -41,15 +41,16 @@ class PolyModel(object):
             scale (Optional[float]): Scales the input vector to pass to ``numpy.vander``.
                 The larger this value, the more flexibility the polynomial model will have for a given number of powers.
             num_terms (Optional[int]): Specify the number of "powers" to use in the polynomial model.
-                As the first power is a constant, the highest power is ``num_terms - 1``. 
+                As the first power is the intercept, the highest power is ``num_terms - 1``. 
 
         """
         self.scale = scale
         self.input_vector = scale * self.normalized_time
-        self.num_terms = num_terms  # With constant
-        self.m = np.vander(self.input_vector, N=num_terms, increasing=True)  # With constant
-        # self.num_terms = num_terms - 1  # Without constant
-        # self.m = np.delete(np.vander(self.input_vector, N=num_terms, increasing=True), 0, 1)  # Without constant
+        self.num_terms = num_terms  # With intercept
+        self.m = np.vander(self.input_vector, N=num_terms, increasing=False)  # With intercept
+        # self.num_terms = num_terms - 1  # Without intercept
+        # self.m = np.delete(np.vander(self.input_vector, N=num_terms, increasing=True), 0, 1)  # Without intercept
+        # print(self.m)
 
     def set_L2_reg(self, reg):
         """Set the L2-regularization for the polynomial model.
@@ -60,6 +61,10 @@ class PolyModel(object):
         """
         self.reg = reg
         self.reg_matrix = reg * np.identity(self.num_terms)
+        self.reg_matrix = np.diag(np.concatenate((np.repeat(reg, self.num_terms-1), np.array([0]))))  # No penalizaing intercept
+        # self.reg_matrix = np.diag(np.concatenate((np.array([0]), np.repeat(reg, self.num_terms-1))))  # No penalizaing intercept
+
+        # print(self.reg_matrix)
 
     def predict(self, m=None, params=None, mask=None):
         """Make a prediction for the polynomial model.
