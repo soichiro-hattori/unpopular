@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import lightkurve as lk
 from scipy.ndimage import median_filter
+from matplotlib.ticker import MaxNLocator
 
 from .cutout_data import CutoutData
 from .model import PixelModel
@@ -160,7 +161,8 @@ class Source(object):
         flux = self.cutout_data.fluxes[:, row, col]
         plt.plot(self.cutout_data.time, flux, ".")
 
-    def plot_pix_by_pix(self, data_type="raw", split=False, figsize=(12, 8), thin=1, marker=".", ms=1):
+    def plot_pix_by_pix(self, data_type="raw", split=False, show_locations=True,
+                        show_labels=True, figsize=(12, 8), thin=1, marker=".", ms=1, yaxis_nbins=6):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=figsize, squeeze=False)
@@ -174,6 +176,17 @@ class Source(object):
                 else:
                     y = self.models[r][c].values_dict[data_type]
                     ax.plot(self.time[::thin], y[::thin], marker, ms=ms, color='k')
+                if show_locations:
+                    ax.text(x=0.98, y=0.98, s=f"[{self.models[r][c].row},{self.models[r][c].col}]", 
+                            ha='right', va='top', transform=ax.transAxes)
+                if show_labels:
+                    if data_type == "raw":
+                        y_label = r"Flux [$\mathrm{e^{-}s^{-1}}$]"
+                    else:
+                        y_label = "Normalized Flux [unitless]"
+                    fig.text(x=0.065, y=0.5, s=y_label, fontsize=18, rotation="vertical", va="center")
+                    fig.text(x=0.5, y=0.06, s="Time - 2457000 [Days]", fontsize=18, ha="center")
+                ax.yaxis.set_major_locator(MaxNLocator(nbins=yaxis_nbins))
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
         return fig, axs
@@ -241,16 +254,14 @@ class Source(object):
         medvals /= np.nansum(medvals)
         for r in rows:
             for c in cols:
+                if weighting == "median":
+                    weight = medvals[r][c]
+                elif weighting == None:
+                    weight = 1
                 if split:
-                    if weighting == "median":
-                        aperture_lc += medvals[r][c]*self.models[r][c].split_values_dict[data_type]
-                    elif weighting == None:
-                        aperture_lc += self.models[r][c].split_values_dict[data_type]         
+                    aperture_lc += weight*self.models[r][c].split_values_dict[data_type]
                 else:
-                    if weighting == "median":
-                        aperture_lc += medvals[r][c]*self.models[r][c].values_dict[data_type]
-                    elif weighting == None:
-                        aperture_lc += self.models[r][c].values_dict[data_type]
+                    aperture_lc += weight*self.models[r][c].values_dict[data_type]
 
         return aperture_lc
 
