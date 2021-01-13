@@ -62,8 +62,6 @@ class PolyModel(object):
         self.reg = reg
         self.reg_matrix = reg * np.identity(self.num_terms)
         self.reg_matrix = np.diag(np.concatenate((np.repeat(reg, self.num_terms-1), np.array([0]))))  # No penalizaing intercept
-        # self.reg_matrix = np.diag(np.concatenate((np.array([0]), np.repeat(reg, self.num_terms-1))))  # No penalizaing intercept
-
         # print(self.reg_matrix)
 
     def predict(self, m=None, params=None, mask=None):

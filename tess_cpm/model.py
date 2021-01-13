@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import lightkurve as lk
 from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import KFold
+from scipy.linalg import block_diag
 
 from .cutout_data import CutoutData
 from .cpm_model import CPM
@@ -130,17 +131,10 @@ class PixelModel(object):
         self._create_design_matrix()
 
     def _create_reg_matrix(self):
-        r = []
-        for mod in self.model_components:
-            r.append(np.repeat(mod.reg, mod.reg_matrix.shape[0]))
-        r = np.hstack(r)
-        self.reg_matrix = r * np.identity(r.size)
+        self.reg_matrix = block_diag(*[mod.reg_matrix for mod in self.model_components])
 
     def _create_design_matrix(self):
-        design_matrices = []
-        for mod in self.model_components:
-            design_matrices.append(mod.m)
-        self.design_matrix = np.hstack((design_matrices))
+        self.design_matrix = np.hstack([mod.m for mod in self.model_components])
 
     def fit(self, y=None, m=None, mask=None, save=True, verbose=True):
         if self.regs == []:
