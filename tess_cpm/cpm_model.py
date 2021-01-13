@@ -131,7 +131,7 @@ class CPM(object):
         self.mask_excluded_pixels = excluded_pixels
         self.is_exclusion_set = True
 
-    def set_predictor_pixels(self, n=256, method="cosine_similarity", seed=None):
+    def set_predictor_pixels(self, n=256, method="similar_brightness", seed=None):
         """Set the predictor pixels (features) used to perform CPM.
         
         CPM attempts to fit to the target pixel's light curve using the linear combination
@@ -147,11 +147,11 @@ class CPM(object):
             method (Optional): Specify the method for choosing predictor pixels. Pixels in the excluded region are never chosen.
                 "cosine_similarity": Choose ``n`` predictor pixels based on the cosine similarity of a given 
                     pixel's light curve with the target pixel's lightcurve. In other words,
-                    this method chooses the top ``n`` pixels with a similar trend to the target pixel (default).
+                    this method chooses the top ``n`` pixels with a similar trend to the target pixel.
                 "random": Randomly choose ``n`` predictor pixels.
                 "similar_brightness": Choose ``n`` predictor pixels based on how close a given pixel's median brightness 
                     is to the target pixel's median brightness. This method potentially chooses variable pixels which
-                    is not ideal. 
+                    is not ideal (default). 
             seed (Optional[int]): The seed passed to ``np.random.seed`` to be able to reproduce predictor pixels using 
                 the "random" method. The other methods are deterministic and are always reproducible.
         """

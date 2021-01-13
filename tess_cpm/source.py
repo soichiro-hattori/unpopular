@@ -48,10 +48,10 @@ class Source(object):
             self.models.append(row_models)
             self.fluxes.append(row_fluxes)
 
-    def add_cpm_model(self, exclusion_size=10,
+    def add_cpm_model(self, exclusion_size=5,
         exclusion_method="closest",
         n=256,
-        predictor_method="cosine_similarity",
+        predictor_method="similar_brightness",
         seed=None):
         if self.models is None:
             print("Please set the aperture first.")
@@ -151,9 +151,10 @@ class Source(object):
             aperture = self.aperture[rows[0]:rows[-1]+1, cols[0]:cols[-1]+1]
             plt.imshow(np.ma.masked_where(aperture == False, aperture), origin='lower', cmap='binary', alpha=0.8)
         fig = plt.gcf()
+        ax = plt.gca()
         plt.show()
 
-        return fig
+        return fig, ax
 
     def plot_pixel(self, row=None, col=None, loc=None):
         """Plot the data (light curve) for a specified pixel.
@@ -162,8 +163,8 @@ class Source(object):
         plt.plot(self.cutout_data.time, flux, ".")
 
     def plot_pix_by_pix(self, data_type="raw", split=False, show_locations=True,
-                        show_labels=True, figsize=(12, 8), thin=1, marker=".", ms=1,
-                        yaxis_nbins=6, y_label_x_loc = 0.065):
+                        show_labels=True, fontsize=15, figsize=(12, 8), thin=1, marker=".", ms=1,
+                        yaxis_nbins=6, ylabel_xloc = 0.065, zeroing=False):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         fig, axs = plt.subplots(rows.size, cols.size, sharex=True, sharey=True, figsize=figsize, squeeze=False)
@@ -172,10 +173,14 @@ class Source(object):
                 ax = axs[rows[-1] - r, c]  # Needed to flip the rows so that they match origin='lower' setting
                 if split:
                     yy = self.models[r][c].split_values_dict[data_type]
+                    if (data_type == "cpm_subtracted_flux") & (zeroing == True):
+                        yy = yy - self.models[r][c].split_values_dict["intercept_prediction"] 
                     for time, y in zip(self.split_times, yy):
                         ax.plot(time[::thin], y[::thin], marker, ms=ms)
                 else:
                     y = self.models[r][c].values_dict[data_type]
+                    if (data_type == "cpm_subtracted_flux") & (zeroing == True):
+                        y = y - self.models[r][c].values_dict["intercept_prediction"] 
                     ax.plot(self.time[::thin], y[::thin], marker, ms=ms, color='k')
                 if show_locations:
                     ax.text(x=0.98, y=0.98, s=f"[{self.models[r][c].row},{self.models[r][c].col}]", 
@@ -183,10 +188,12 @@ class Source(object):
                 if show_labels:
                     if data_type == "raw":
                         y_label = r"Flux [$\mathrm{e^{-}s^{-1}}$]"
+                    elif data_type == "cpm_subtracted_flux":
+                        y_label = "De-trended Flux"
                     else:
-                        y_label = "Normalized Flux [unitless]"
-                    fig.text(x=0.065, y=0.5, s=y_label, fontsize=18, rotation="vertical", va="center")
-                    fig.text(x=0.5, y=0.06, s="Time - 2457000 [Days]", fontsize=18, ha="center")
+                        y_label = "Normalized Flux"
+                    fig.text(x=ylabel_xloc, y=0.5, s=y_label, fontsize=fontsize, rotation="vertical", va="center", rasterized=False)
+                    fig.text(x=0.5, y=0.06, s="Time [BJD- 2457000]", fontsize=fontsize, ha="center", rasterized=False)
                 ax.yaxis.set_major_locator(MaxNLocator(nbins=yaxis_nbins))
         fig.subplots_adjust(wspace=0, hspace=0)
         plt.show()
@@ -239,7 +246,7 @@ class Source(object):
             outliers += out
         return outliers
 
-    def get_aperture_lc(self, data_type="raw", weighting="median", split=False, verbose=True):
+    def get_aperture_lc(self, data_type="raw", weighting=None, split=False, verbose=True):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         if verbose:

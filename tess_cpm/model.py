@@ -22,6 +22,7 @@ class PixelModel(object):
         self.row = row
         self.col = col
         self.time = self.cutout_data.time
+        self.raw_flux = self.cutout_data.fluxes[:, row, col]
         self.norm_flux = self.cutout_data.normalized_fluxes[:, row, col]
         self.median = self.cutout_data.flux_medians[row, col]
         self.cpm = None
@@ -81,7 +82,7 @@ class PixelModel(object):
         exclusion_size=5,
         exclusion_method="closest",
         n=256,
-        predictor_method="cosine_similarity",
+        predictor_method="similar_brightness",
         seed=None,
     ):
         cpm = CPM(self.cutout_data)
@@ -172,22 +173,22 @@ class PixelModel(object):
                 self.poly_model.params = self.params[self.cpm.num_predictor_pixels :]
         return params
 
-    def predict(self, m=None, params=None, mask=None, save=True):
-        if m is None:
-            m = self.design_matrix
-        if params is None:
-            params = self.params
-        if mask is None:
-            mask = np.full(m.shape[0], True)
-        m = m[mask]
-        prediction = np.dot(m, params)
-        # Why does doing self.design_matrix give different results...
-        # p = np.dot(self.design_matrix, self.params)
-        # print(np.allclose(p, prediction))
-        # print(np.alltrue(p == prediction))
-        if save:
-            self.prediction = prediction
-        return prediction
+    # def predict(self, m=None, params=None, mask=None, save=True):
+    #     if m is None:
+    #         m = self.design_matrix
+    #     if params is None:
+    #         params = self.params
+    #     if mask is None:
+    #         mask = np.full(m.shape[0], True)
+    #     m = m[mask]
+    #     prediction = np.dot(m, params)
+    #     # Why does doing self.design_matrix give different results...
+    #     # p = np.dot(self.design_matrix, self.params)
+    #     # print(np.allclose(p, prediction))
+    #     # print(np.alltrue(p == prediction))
+    #     if save:
+    #         self.prediction = prediction
+    #     return prediction
 
     def holdout_fit(self, k=10, mask=None, verbose=True):
         if self.regs == []:
@@ -260,13 +261,17 @@ class PixelModel(object):
         self.split_cpm_subtracted_flux = []
 
     def rescale(self):
-        self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]
-        self.rescaled_cpm_subtracted_flux = (self.cpm_subtracted_flux + 1) * self.median
+        # self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]
+        if self.poly_model is not None:
+            self.split_rescaled_cpm_subtracted_flux = [(dt_flux-inter+1) * self.median for dt_flux, inter in zip(self.split_cpm_subtracted_flux, self.split_intercept_prediction)]
+        else:
+            self.split_rescaled_cpm_subtracted_flux = [(dt_flux+1) * self.median for dt_flux in self.split_cpm_subtracted_flux]
+        self.rescaled_cpm_subtracted_flux = np.concatenate(self.split_rescaled_cpm_subtracted_flux)
 
     def plot_model(self, size_predictors=2):
         return self.cpm.plot_model(size_predictors=size_predictors)
 
-    def summary_plot(self, figsize=(16, 5.5), zeroing=True, size_predictors=10):
+    def summary_plot(self, figsize=(16, 5.5), zeroing=True, show_location=False, size_predictors=10):
         fig = plt.figure(figsize=figsize)
         gs = GridSpec(2, 5, hspace=0)
 
@@ -283,7 +288,11 @@ class PixelModel(object):
         for axis in ['top','bottom','left','right']:
             ax1.spines[axis].set_linewidth(1.5)
         
-        ax2.plot(self.time, self.norm_flux, "k.", ms=5, alpha=0.2)
+        ax2.plot(self.time, self.norm_flux, "k.", ms=5, alpha=0.2, 
+                 label="Normalized Flux")
+        if show_location:
+                ax2.text(x=0.98, y=0.95, s=f"[{self.row},{self.col}]", 
+                        ha='right', va='top', transform=ax2.transAxes)
         
         if zeroing:
             y_ax2 = self.cpm_prediction + self.intercept_prediction
@@ -292,23 +301,23 @@ class PixelModel(object):
             y_ax2 = self.cpm_prediction
             y_ax3 = self.cpm_subtracted_flux
 
-        ax2.plot(self.time, y_ax2, "C3-", lw=1.5, alpha=0.7)
+        ax2.plot(self.time, y_ax2, "C3-", lw=1.5, alpha=0.7, label="CPM Prediction")
         ax3.plot(self.time, y_ax3, "k.", ms=5, alpha=0.2)
 
-        ax2.tick_params(labelsize=10)
+        ax2.legend(markerscale=2, fontsize=10, edgecolor="k")
+        ax2.tick_params(axis="y", labelsize=8)
         for axis in ['top','bottom','left','right']:
             ax2.spines[axis].set_linewidth(1.5)
-        ax3.tick_params(labelsize=10)
+        ax3.tick_params(axis="y", labelsize=15)
+        ax3.tick_params(axis="y", labelsize=8)
+
         for axis in ['top','bottom','left','right']:
             ax3.spines[axis].set_linewidth(1.5)
 
+        ax3.set_xlabel("Time [BJD - 2457000]", fontsize=15)
+        fig.text(0.405, 2/3, "Normalized Flux", fontsize=12, rotation="vertical", va="center")
+        fig.text(0.405, 1/3, "De-trended Flux", fontsize=12, rotation="vertical", va="center")
 
-        # ax_label.set_ylabel("Normalized Flux [unitless]", fontsize=12)
-        # ax_label.set_xlabel("Time - 2457000 [Days]", fontsize=12)
-        # ax3.set_ylabel("Normalized Flux [unitless]", fontsize=12)
-
-        ax3.set_xlabel("Time - 2457000 [Days]", fontsize=15)
-        fig.text(0.405, 0.5, "Normalized Flux [unitless]", fontsize=15, rotation="vertical", va="center")
 
         plt.show()
         return fig, [ax1, ax2, ax3]

@@ -8,10 +8,13 @@
 *.pyc
 *.tex
 *.csv
+*.pdf
+*.pdf#
 
 # Specific files to ignore
 miscellaneous.ipynb
 plots.ipynb
+plots-Copy1.ipynb
 
 # directories to ignore
 generated_plots/
