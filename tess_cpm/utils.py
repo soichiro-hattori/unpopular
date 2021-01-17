@@ -192,8 +192,12 @@ def stitch_sectors(t1, t2, lc1, lc2, points=50):
     b = np.dot(m.T, y)
     params = np.linalg.solve(a, b)
     time = np.concatenate((t1, t2))
-    diff = np.abs(params[-2] - params[-1]) + params[0]*(time[int(points/2) + 1] - time[int(points/2)])
-    return (diff, time, np.concatenate((lc1, lc2+diff)))
+    diff = np.abs(np.abs(params[-2]) - np.abs(params[-1])) + params[0]*(t2[0]-t1[-1])
+    if np.mean(lc1[-10:]) > np.mean(lc2[:10]):  # Second light curve is lower
+        diff = diff
+    elif np.mean(lc1[-10:]) < np.mean(lc2[:10]):  # Second light curve is higher
+        diff = -diff
+    return (diff, params, time, np.concatenate((lc1, lc2+diff)))
 
 # Maybe this function should be a method for the Source class.
 # def get_outliers(lc, window=50, sigma=5, sigma_upper=None, sigma_lower=None):

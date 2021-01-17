@@ -266,66 +266,6 @@ class CPM(object):
         plt.show()
         return fig, ax
 
-        # plt.figure(figsize=(12, 12))
-
-        # median_image = self.cutout_data.flux_medians
-        # # print(median_image.shape)
-        # plt.imshow(median_image, origin="lower", 
-        #     vmin=np.nanpercentile(median_image, 10),
-        #     vmax=np.nanpercentile(median_image, 90)
-        #     )
-        # plt.imshow(np.ma.masked_where(self.mask_excluded_pixels==False, self.mask_excluded_pixels), origin="lower", cmap="Set1", alpha=0.5)
-        # plt.imshow(np.ma.masked_where(self.mask_target_pixel==False, self.mask_target_pixel), origin="lower", cmap="binary", alpha=1.0)
-        # # plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="binary_r", alpha=0.9)
-        # plt.imshow(np.ma.masked_where(self.mask_predictor_pixels==False, self.mask_predictor_pixels), origin="lower", cmap="Set1", alpha=0.9)
-
-        # # plt.title(f"Target Pixel: [{self.target_row}, {self.target_col}]", fontsize=30)
-        # fig = plt.gcf()
-        # ax = plt.gca()
-        # plt.show()
-        # return fig, ax
-
-        # print(np.sum(np.sum(self.mask_predictor_pixels)))
-
-
-        # ax1 = plt.subplot2grid((4, 3), (0, 0), rowspan=2)
-        # ax2 = plt.subplot2grid((4, 3), (0, 1), rowspan=2)
-        # ax3 = plt.subplot2grid((4, 3), (0, 2), rowspan=2)
-
-        # ax4 = plt.subplot2grid((4, 3), (2, 0), colspan=3)
-        # ax5 = plt.subplot2grid((4, 3), (3, 0), colspan=3)
-
-        
-
-        # #     first_image = cpm.im_fluxes[0,:,:]
-        # ax1.imshow(
-        #     first_image,
-        #     origin="lower",
-        #     vmin=np.nanpercentile(first_image, 10),
-        #     vmax=np.nanpercentile(first_image, 90),
-        # )
-
-        # ax2.imshow(
-        #     first_image,
-        #     origin="lower",
-        #     vmin=np.nanpercentile(first_image, 10),
-        #     vmax=np.nanpercentile(first_image, 90),
-        # )
-        # ax2.imshow(cpm.excluded_pixels_mask, origin="lower", cmap="Set1", alpha=0.5)
-        # ax2.imshow(cpm.target_pixel_mask, origin="lower", cmap="binary", alpha=1.0)
-        # ax2.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
-
-        # ax3.imshow(
-        #     first_image,
-        #     origin="lower",
-        #     vmin=np.nanpercentile(first_image, 10),
-        #     vmax=np.nanpercentile(first_image, 90),
-        # )
-        # ax3.imshow(cpm.excluded_pixels_mask, origin="lower", cmap="Set1", alpha=0.5)
-        # ax3.imshow(cpm.target_pixel_mask, origin="lower", cmap="binary", alpha=1.0)
-        # ax3.imshow(cpm.predictor_pixels_mask, origin="lower", cmap="binary_r", alpha=0.9)
-        # ax3.imshow(top_n_mask, origin="lower", cmap="Set1")
-
     def _plot_model_onto_axes(self, ax, size_predictors=10):
 
         median_image = self.cutout_data.flux_medians

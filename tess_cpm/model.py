@@ -167,23 +167,6 @@ class PixelModel(object):
                 self.poly_model.params = self.params[self.cpm.num_predictor_pixels :]
         return params
 
-    # def predict(self, m=None, params=None, mask=None, save=True):
-    #     if m is None:
-    #         m = self.design_matrix
-    #     if params is None:
-    #         params = self.params
-    #     if mask is None:
-    #         mask = np.full(m.shape[0], True)
-    #     m = m[mask]
-    #     prediction = np.dot(m, params)
-    #     # Why does doing self.design_matrix give different results...
-    #     # p = np.dot(self.design_matrix, self.params)
-    #     # print(np.allclose(p, prediction))
-    #     # print(np.alltrue(p == prediction))
-    #     if save:
-    #         self.prediction = prediction
-    #     return prediction
-
     def holdout_fit(self, k=10, mask=None, verbose=True):
         if self.regs == []:
             print("Please set the L-2 regularizations first.")
@@ -253,6 +236,7 @@ class PixelModel(object):
         self.split_intercept_prediction = []
         self.split_custom_model_prediction = []
         self.split_cpm_subtracted_flux = []
+        self.split_rescaled_cpm_subtracted_flux = []
 
     def rescale(self):
         # self.split_rescaled_cpm_subtracted_flux = [(flux + 1) * self.median for flux in self.split_cpm_subtracted_flux]

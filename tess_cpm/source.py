@@ -252,7 +252,7 @@ class Source(object):
         if verbose:
             print(f"Summing over {rows.size} x {cols.size} pixel lightcurves")
         if split:
-            aperture_lc = np.zeros_like(self.split_times)
+            aperture_lc = np.zeros_like(self.split_times, dtype=object)
         else:
             aperture_lc = np.zeros_like(self.time)
         medvals = np.zeros((len(rows), len(cols)))
@@ -265,7 +265,7 @@ class Source(object):
                 if weighting == "median":
                     weight = medvals[r][c]
                 elif weighting == None:
-                    weight = 1
+                    weight = 1.0
                 if split:
                     aperture_lc += weight*self.models[r][c].split_values_dict[data_type]
                 else:
