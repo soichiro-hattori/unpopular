@@ -15,6 +15,9 @@
 miscellaneous.ipynb
 plots.ipynb
 plots-Copy1.ipynb
+tic395130640.ipynb
+flux2mag_conversion_check.ipynb
+offset_between_tpf_ffi.ipynb
 
 # directories to ignore
 generated_plots/

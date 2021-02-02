@@ -250,7 +250,7 @@ class Source(object):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
         if verbose:
-            print(f"Summing over {rows.size} x {cols.size} pixel lightcurves")
+            print(f"Summing over {rows.size} x {cols.size} pixel lightcurves. Weighting={weighting}")
         if split:
             aperture_lc = np.zeros_like(self.split_times, dtype=object)
         else:

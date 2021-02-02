@@ -57,7 +57,7 @@ class PixelModel(object):
     @property
     def values_dict(self):
         return {
-            "raw" : (self.norm_flux + 1) * self.median,
+            "raw" : self.raw_flux,
             "normalized_flux" : self.norm_flux,
             "cpm_prediction" : self.cpm_prediction,
             "poly_model_prediction" : self.poly_model_prediction,
