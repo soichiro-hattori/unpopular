@@ -16,9 +16,11 @@ class Source(object):
 
     """
 
-    def __init__(self, path, remove_bad=True, verbose=True, provenance='TessCut', quality=None):
+    def __init__(self, path, remove_bad=True, verbose=True, 
+                 provenance='TessCut', quality=None, bkg_subtract=False, bkg_n=100):
         self.provenance = provenance
-        self.cutout_data = CutoutData(path, remove_bad, verbose, self.provenance, quality)
+        self.cutout_data = CutoutData(path, remove_bad, verbose, 
+                                      self.provenance, quality, bkg_subtract, bkg_n)
         self.time = self.cutout_data.time
         self.aperture = None
         self.models = None
@@ -94,7 +96,7 @@ class Source(object):
             for model in row_models:
                 model.set_regs(regs, verbose)
 
-    def holdout_fit_predict(self, k=10, mask=None):
+    def holdout_fit_predict(self, k=10, mask=None, verbose=False):
         if self.models is None:
             print("Please set the aperture first.")
         if mask is not None:
@@ -107,7 +109,7 @@ class Source(object):
             row_fluxes = []
             # row_detrended_lcs = []
             for model in row_models:
-                times, flux, pred = model.holdout_fit_predict(k, mask)
+                times, flux, pred = model.holdout_fit_predict(k, mask, verbose=verbose)
                 row_fluxes.append(flux)
                 row_predictions.append(pred)
                 # row_detrended_lcs.append(flux - pred)

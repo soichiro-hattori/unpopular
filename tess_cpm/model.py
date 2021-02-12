@@ -157,6 +157,13 @@ class PixelModel(object):
 
         a = np.dot(m.T, m) + self.reg_matrix
         b = np.dot(m.T, y)
+        if verbose:
+            print(f"Numpy Defined Condition Number: {np.linalg.cond(a)}")
+            # eigvals, eigvecs = np.linalg.eigh(a)
+            # eigvals = eigvals[np.nonzero(eigvals)]
+            # max_eigval, min_eigval = eigvals.max(), eigvals.min()
+            # eigval_ratio = max_eigval / min_eigval
+            # print(f"Eigenvalue Ratio Condition Number: {eigval_ratio:.2f} (Max: {max_eigval:.2f}, Min: {min_eigval:.2f})")
         params = np.linalg.solve(a, b)
         if save:
             self.params = params

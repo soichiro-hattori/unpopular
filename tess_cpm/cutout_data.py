@@ -17,7 +17,8 @@ class CutoutData(object):
 
     """
 
-    def __init__(self, path, remove_bad=True, verbose=True, provenance='TessCut', quality=None):
+    def __init__(self, path, remove_bad=True, verbose=True, 
+                 provenance='TessCut', quality=None, bkg_subtract=False, bkg_n=100):
         self.file_path = path
         self.file_name = path.split("/")[-1]
         
@@ -28,11 +29,11 @@ class CutoutData(object):
             self.ccd = s[3][0]
 
             with fits.open(path, mode="readonly") as hdu:
-                self.time = hdu[1].data["TIME"]
-                self.fluxes = hdu[1].data["FLUX"]
-                self.flux_errors = hdu[1].data["FLUX_ERR"]
+                self.time = hdu[1].data["TIME"]  # pylint: disable=no-member
+                self.fluxes = hdu[1].data["FLUX"]  # pylint: disable=no-member
+                self.flux_errors = hdu[1].data["FLUX_ERR"]  # pylint: disable=no-member
                 if quality is None:
-                    self.quality = hdu[1].data["QUALITY"]
+                    self.quality = hdu[1].data["QUALITY"]  # pylint: disable=no-member
                 else:
                     self.quality = quality
                 try:
@@ -47,11 +48,11 @@ class CutoutData(object):
                 self.camera = int(hdu[2].header["CAMERA"])  # pylint: disable=no-member
                 self.ccd    = int(hdu[2].header["CCD"])  # pylint: disable=no-member
 
-                self.time = (hdu[1].data['TSTART'] + hdu[1].data['TSTOP'])/2
-                self.fluxes = hdu[2].data
-                self.flux_errors = hdu[3].data
+                self.time = (hdu[1].data['TSTART'] + hdu[1].data['TSTOP'])/2  # pylint: disable=no-member
+                self.fluxes = hdu[2].data  # pylint: disable=no-member
+                self.flux_errors = hdu[3].data  # pylint: disable=no-member
                 if quality is None:
-                    self.quality = hdu[1].data['QUALITY']
+                    self.quality = hdu[1].data['QUALITY']  # pylint: disable=no-member
                 else:
                     self.quality = quality
 
@@ -77,6 +78,17 @@ class CutoutData(object):
             self.fluxes = self.fluxes[bool_good]
             self.flux_errors = self.flux_errors[bool_good]
 
+        # basic background correction based on subtracting median flux light curve of 500 faintest pixels
+        if bkg_subtract:
+            print("Performing initial basic background subtraction.")
+            self.flux_medians = np.nanmedian(self.fluxes, axis=0)
+            self.faint_pixel_locations = np.unravel_index(np.argpartition(self.flux_medians.ravel(),bkg_n)[:bkg_n], 
+                                                     self.flux_medians.shape)
+            self.faint_pixel_lcs = self.fluxes[:, self.faint_pixel_locations[0], self.faint_pixel_locations[1]]
+            self.bkg_estimate = np.nanmedian(self.faint_pixel_lcs, axis=1)
+            assert self.time.shape == self.bkg_estimate.shape
+            self.fluxes -= self.bkg_estimate.reshape(-1, 1, 1)
+
         # We're going to precompute the pixel lightcurve medians since it's used to set the predictor pixels
         # but never has to be recomputed. np.nanmedian is used to handle images containing NaN values.
         self.flux_medians = np.nanmedian(self.fluxes, axis=0)
@@ -94,3 +106,6 @@ class CutoutData(object):
         )
 
         self.normalized_flux_errors = self.flux_errors / self.flux_medians
+
+
+
