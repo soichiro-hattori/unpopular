@@ -182,21 +182,17 @@ def summary_plot(cpm, n=20, subtract_polynomials=False, save=False):
 
 def stitch_sectors(t1, t2, lc1, lc2, points=50):
     offset = np.ones((points, 1))
-    offset
     m = np.block([
                  [t1[-points:].reshape(-1, 1), offset, np.zeros((points, 1))],
                  [t2[:points].reshape(-1, 1), np.zeros((points, 1)), offset]
         ])
+    m[:,0] = m[:,0] - np.median(m[:,0])
     y = np.concatenate((lc1[-points:], lc2[:points]))
     a = np.dot(m.T, m)
     b = np.dot(m.T, y)
     params = np.linalg.solve(a, b)
     time = np.concatenate((t1, t2))
-    diff = np.abs(np.abs(params[-2]) - np.abs(params[-1])) + params[0]*(t2[0]-t1[-1])
-    if np.mean(lc1[-10:]) > np.mean(lc2[:10]):  # Second light curve is lower
-        diff = diff
-    elif np.mean(lc1[-10:]) < np.mean(lc2[:10]):  # Second light curve is higher
-        diff = -diff
+    diff = params[1] - params[2] + params[0]*(t2[0]-t1[-1])
     return (diff, params, time, np.concatenate((lc1, lc2+diff)))
 
 # Maybe this function should be a method for the Source class.
