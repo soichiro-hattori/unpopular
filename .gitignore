@@ -29,6 +29,8 @@ periodogram.ipynb
 supernovae.ipynb
 tester.ipynb
 variable_stars.ipynb
+docs/tutorials/supernovae.ipynb
+
 # directories to ignore
 generated_plots/
 .ipynb_checkpoints/
