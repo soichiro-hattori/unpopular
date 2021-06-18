@@ -9,7 +9,6 @@
 *.tex
 *.csv
 *.pdf
-*.pdf#
 
 # Specific files to ignore
 miscellaneous.ipynb
@@ -20,7 +19,7 @@ flux2mag_conversion_check.ipynb
 offset_between_tpf_ffi.ipynb
 testing_grounds.ipynb
 check_xy_order.ipynb
-
+playing_around.ipynb
 # directories to ignore
 generated_plots/
 .ipynb_checkpoints/
