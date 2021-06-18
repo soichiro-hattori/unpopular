@@ -20,6 +20,15 @@ offset_between_tpf_ffi.ipynb
 testing_grounds.ipynb
 check_xy_order.ipynb
 playing_around.ipynb
+dwarfs.ipynb
+eclipsing_binaries.ipynb
+exoplanets.ipynb
+naive_cpm.ipynb
+old_naive_cpm.ipynb
+periodogram.ipynb
+supernovae.ipynb
+tester.ipynb
+variable_stars.ipynb
 # directories to ignore
 generated_plots/
 .ipynb_checkpoints/
