@@ -37,3 +37,6 @@ TIC176956893/
 build/
 dist/
 tess_cpm.egg-info/
+cbv/
+lc/
+tpf/
