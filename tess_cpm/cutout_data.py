@@ -19,6 +19,11 @@ class CutoutData(object):
 
     def __init__(self, path, remove_bad=True, verbose=True, 
                  provenance='TessCut', quality=None, bkg_subtract=False, bkg_n=100):
+        # Check input
+        if False == isinstance(path, str):
+            raise ValueError("The input path is of type " + str(type(path)) + " while a string was expected")
+        
+        # Get image filename containing sector, camera and ccd numbers
         self.file_path = path
         self.file_name = path.split("/")[-1]
         
