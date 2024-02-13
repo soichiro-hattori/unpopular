@@ -4,7 +4,7 @@ with open("README.md", "r") as f:
     readme = f.read()
 
 setuptools.setup(
-    name="tess_cpm",
+    name="unpopular",
     version="0.0.1",
     author="Soichiro Hattori",
     author_email="soichiro.hattori@gmail.com",

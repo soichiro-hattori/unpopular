@@ -9,6 +9,7 @@
 *.tex
 *.csv
 *.pdf
+*.fits
 
 # Specific files to ignore
 miscellaneous.ipynb
@@ -42,3 +43,4 @@ tess_cpm.egg-info/
 cbv/
 lc/
 tpf/
+unpopular.egg-info/
