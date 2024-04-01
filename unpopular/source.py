@@ -50,6 +50,26 @@ class Source(object):
             self.models.append(row_models)
             self.fluxes.append(row_fluxes)
 
+    def set_aperture_via_mask(self, mask):
+        data_shape = self.cutout_data.fluxes[0].shape
+        try:
+            assert mask.shape == data_shape
+        except AssertionError:
+            print("The mask and FFI cutout must have the same shape.")
+            print(f"mask shape: {mask.shape}, cutout shape: {data_shape}")
+        self.models = []
+        self.fluxes = []
+
+        self.aperture = mask
+        rows, cols = np.asarray(mask == True).nonzero()
+        for r, c in zip(rows, cols):
+            _models, _fluxes = [], []
+            _models.append(PixelModel(self.cutout_data, r, c))
+            self.models.append(_models)
+            _fluxes.append(self.cutout_data.normalized_fluxes[:, r, c])
+            self.fluxes.append(_fluxes)
+
+
     def add_cpm_model(self, exclusion_size=5,
         exclusion_method="closest",
         n=256,
@@ -201,6 +221,51 @@ class Source(object):
         plt.show()
         return fig, axs
 
+    def plot_pix_by_pix_via_mask(self, data_type="raw", split=False, show_locations=True,
+                        show_labels=True, fontsize=15, figsize=(12, 8), thin=1, marker=".", ms=1,
+                        yaxis_nbins=6, ylabel_xloc = 0.065, zeroing=False):
+        plotted_rows = np.array([m[0].row for m in self.models])
+        plotted_cols = np.array([m[0].col for m in self.models])
+        min_r, max_r = np.min(plotted_rows), np.max(plotted_rows)
+        min_c, max_c = np.min(plotted_cols), np.max(plotted_cols)
+        fig_row_size = max_r - min_r + 1
+        fig_col_size = max_c - min_c + 1
+        plotted_rows = plotted_rows - min_r
+        plotted_cols = plotted_cols - min_c
+        fig, axs = plt.subplots(fig_row_size, fig_col_size, sharex=True, sharey=True, figsize=figsize, squeeze=False)
+        row_max = np.max(plotted_rows)
+        n_pixels = len(plotted_rows)
+        for r, c, idx in zip(plotted_rows, plotted_cols, range(n_pixels)):
+            ax = axs[row_max - r, c]
+            if split:
+                yy = self.models[idx][0].split_values_dict[data_type]
+                if (data_type == "cpm_subtracted_flux") & (zeroing == True):
+                    yy = yy - self.models[idx][0].split_values_dict["intercept_prediction"] 
+                for time, y in zip(self.split_times, yy):
+                    ax.plot(time[::thin], y[::thin], marker, ms=ms)
+            else:
+                y = self.models[idx][0].values_dict[data_type]
+                if (data_type == "cpm_subtracted_flux") & (zeroing == True):
+                    y = y - self.models[idx][0].values_dict["intercept_prediction"] 
+                ax.plot(self.time[::thin], y[::thin], marker, ms=ms, color='k')
+            if show_locations:
+                ax.text(x=0.98, y=0.98, s=f"[{self.models[idx][0].row},{self.models[idx][0].col}]", 
+                        ha='right', va='top', transform=ax.transAxes)
+            if show_labels:
+                if data_type == "raw":
+                    y_label = r"Flux [$\mathrm{e^{-}s^{-1}}$]"
+                elif data_type == "cpm_subtracted_flux":
+                    y_label = "De-trended Flux"
+                else:
+                    y_label = "Normalized Flux"
+                fig.text(x=ylabel_xloc, y=0.5, s=y_label, fontsize=fontsize, rotation="vertical", va="center", rasterized=False)
+                fig.text(x=0.5, y=0.06, s="Time [BJD- 2457000]", fontsize=fontsize, ha="center", rasterized=False)
+            ax.yaxis.set_major_locator(MaxNLocator(nbins=yaxis_nbins))
+        fig.subplots_adjust(wspace=0, hspace=0)
+        plt.show()
+        return fig, axs
+
+
     def get_lc_matrix(self, data_type="cpm_subtracted_flux"):
         rows = np.arange(len(self.models))
         cols = np.arange(len(self.models[0]))
@@ -273,6 +338,37 @@ class Source(object):
                 else:
                     aperture_lc += weight*self.models[r][c].values_dict[data_type]
 
+        return aperture_lc
+
+    def get_aperture_lc_via_mask(self, data_type="raw", weighting=None, split=False, verbose=True):
+        plotted_rows = np.array([m[0].row for m in self.models])
+        plotted_cols = np.array([m[0].col for m in self.models])
+        min_r, max_r = np.min(plotted_rows), np.max(plotted_rows)
+        min_c, max_c = np.min(plotted_cols), np.max(plotted_cols)
+        fig_row_size = max_r - min_r + 1
+        fig_col_size = max_c - min_c + 1
+        rows_idx = plotted_rows - min_r
+        cols_idx = plotted_cols - min_c
+        n_pixels = len(plotted_rows)
+        if verbose:
+            print(f"Summing over {n_pixels} pixel lightcurves. Weighting={weighting}")
+        if split:
+            aperture_lc = np.zeros_like(self.split_times, dtype=object)
+        else:
+            aperture_lc = np.zeros_like(self.time)
+        medvals = np.zeros(n_pixels)
+        for idx in range(n_pixels):
+            medvals[idx] = self.models[idx][0].cpm.target_median
+        medvals /= np.nansum(medvals)
+        for idx in range(n_pixels):
+            if weighting == 'median':
+                w = medvals[idx]
+            elif weighting == None:
+                w = 1.0
+            if split:
+                aperture_lc += w*self.models[idx][0].split_values_dict[data_type]
+            else:
+                aperture_lc += w*self.models[idx][0].values_dict[data_type]
         return aperture_lc
 
     def _calc_cdpp(self, flux, **kwargs):
