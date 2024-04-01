@@ -340,6 +340,37 @@ class Source(object):
 
         return aperture_lc
 
+    def get_aperture_lc_via_mask(self, data_type="raw", weighting=None, split=False, verbose=True):
+        plotted_rows = np.array([m[0].row for m in self.models])
+        plotted_cols = np.array([m[0].col for m in self.models])
+        min_r, max_r = np.min(plotted_rows), np.max(plotted_rows)
+        min_c, max_c = np.min(plotted_cols), np.max(plotted_cols)
+        fig_row_size = max_r - min_r + 1
+        fig_col_size = max_c - min_c + 1
+        rows_idx = plotted_rows - min_r
+        cols_idx = plotted_cols - min_c
+        n_pixels = len(plotted_rows)
+        if verbose:
+            print(f"Summing over {n_pixels} pixel lightcurves. Weighting={weighting}")
+        if split:
+            aperture_lc = np.zeros_like(self.split_times, dtype=object)
+        else:
+            aperture_lc = np.zeros_like(self.time)
+        medvals = np.zeros(n_pixels)
+        for idx in range(n_pixels):
+            medvals[idx] = self.models[idx][0].cpm.target_median
+        medvals /= np.nansum(medvals)
+        for idx in range(n_pixels):
+            if weighting == 'median':
+                w = medvals[idx]
+            elif weighting == None:
+                w = 1.0
+            if split:
+                aperture_lc += w*self.models[idx][0].split_values_dict[data_type]
+            else:
+                aperture_lc += w*self.models[idx][0].values_dict[data_type]
+        return aperture_lc
+
     def _calc_cdpp(self, flux, **kwargs):
         return lk.TessLightCurve(flux=flux+1).estimate_cdpp(**kwargs)
 
