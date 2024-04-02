@@ -18,9 +18,15 @@ class CutoutData(object):
     """
 
     def __init__(self, path, remove_bad=True, verbose=True, 
-                 provenance='TessCut', quality=None, bkg_subtract=False, bkg_n=100):
-        self.file_path = path
-        self.file_name = path.split("/")[-1]
+                 provenance='TessCut', quality=None, bkg_subtract=False, bkg_n=100,
+                 time_path=None, flux_path=None, ferr_path=None):
+        try:
+            self.file_path = path
+            self.file_name = path.split("/")[-1]
+        except AttributeError:
+            print("Locally reading in files")
+            self.file_path = None
+            self.file_name = None
         
         if provenance == 'TessCut':
             s = self.file_name.split("-")
@@ -61,9 +67,20 @@ class CutoutData(object):
                 except Exception as inst:
                     print(inst)
                     print("WCS Info could not be retrieved")
+
+        elif provenance == 'local':
+            self.sector = None
+            self.camera = None
+            self.ccd = None
+
+            self.time = np.load(time_path)
+            self.fluxes = np.load(flux_path)
+            self.flux_errors = np.load(ferr_path)
+
+            self.quality = np.zeros_like(self.time)
                     
         else:
-            raise ValueError('Data provenance not understood. Pass through TessCut or eleanor')
+            raise ValueError('Data provenance not understood. Pass through TessCut, eleanor, or local')
 
         self.flagged_times = self.time[self.quality > 0]
         # If remove_bad is set to True, we'll remove the values with a nonzero entry in the quality array

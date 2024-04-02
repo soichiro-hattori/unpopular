@@ -17,10 +17,16 @@ class Source(object):
     """
 
     def __init__(self, path, remove_bad=True, verbose=True, 
-                 provenance='TessCut', quality=None, bkg_subtract=False, bkg_n=100):
+                 provenance='TessCut', quality=None, bkg_subtract=False, bkg_n=100,
+                 time_path=None, flux_path=None, ferr_path=None):
         self.provenance = provenance
-        self.cutout_data = CutoutData(path, remove_bad, verbose, 
-                                      self.provenance, quality, bkg_subtract, bkg_n)
+        if provenance in ['TessCut', 'eleanor']:
+            self.cutout_data = CutoutData(path, remove_bad, verbose, 
+                                        self.provenance, quality, bkg_subtract, bkg_n)
+        elif provenance == 'local':
+            self.cutout_data = CutoutData(path, remove_bad, verbose,
+                                         self.provenance, bkg_subtract=bkg_subtract, bkg_n=bkg_n,
+                                         time_path=time_path, flux_path=flux_path, ferr_path=ferr_path)
         self.time = self.cutout_data.time
         self.aperture = None
         self.models = None
