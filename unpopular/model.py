@@ -26,6 +26,8 @@ class PixelModel(object):
         self.raw_flux = self.cutout_data.fluxes[:, row, col]
         self.norm_flux = self.cutout_data.normalized_fluxes[:, row, col]
         self.median = self.cutout_data.flux_medians[row, col]
+        self.flux_errors = self.cutout_data.flux_errors[:, row, col]
+        self.normalized_flux_errors = self.cutout_data.normalized_flux_errors[:, row, col]
         self.cpm = None
         self.poly_model = None
         self.custom_model = None

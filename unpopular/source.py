@@ -31,6 +31,7 @@ class Source(object):
         self.aperture = None
         self.models = None
         self.fluxes = None
+        self.flux_errs = None
         self.predictions = None
         self.detrended_lcs = None
         self.split_times = None
@@ -42,6 +43,7 @@ class Source(object):
     def set_aperture(self, rowlims=[49, 51], collims=[49, 51]):
         self.models = []
         self.fluxes = []
+        self.flux_errs = []
         apt = np.full(self.cutout_data.fluxes[0].shape, False)
         # print("Assuming you're interested in the central set of pixels")
         apt[rowlims[0]:rowlims[1]+1, collims[0]:collims[1]+1] = True
@@ -50,11 +52,14 @@ class Source(object):
         for row in range(rowlims[0], rowlims[1]+1):
             row_models = []
             row_fluxes = []
+            row_ferrs = []
             for col in range(collims[0], collims[1]+1):
                 row_models.append(PixelModel(self.cutout_data, row, col))
                 row_fluxes.append(self.cutout_data.normalized_fluxes[:, row, col])
+                row_ferrs.append(self.cutout_data.normalized_flux_errors[:, row, col])
             self.models.append(row_models)
             self.fluxes.append(row_fluxes)
+            self.flux_errs.append(row_ferrs)
 
     def set_aperture_via_mask(self, mask):
         data_shape = self.cutout_data.fluxes[0].shape
@@ -65,15 +70,18 @@ class Source(object):
             print(f"mask shape: {mask.shape}, cutout shape: {data_shape}")
         self.models = []
         self.fluxes = []
+        self.flux_errs = []
 
         self.aperture = mask
         rows, cols = np.asarray(mask == True).nonzero()
         for r, c in zip(rows, cols):
-            _models, _fluxes = [], []
+            _models, _fluxes, _flux_errs = [], [], []
             _models.append(PixelModel(self.cutout_data, r, c))
             self.models.append(_models)
             _fluxes.append(self.cutout_data.normalized_fluxes[:, r, c])
             self.fluxes.append(_fluxes)
+            _flux_errs.append(self.cutout_data.normalized_flux_errors[:,r,c])
+            self.flux_errs.append(_flux_errs)
 
 
     def add_cpm_model(self, exclusion_size=5,
@@ -376,6 +384,12 @@ class Source(object):
             else:
                 aperture_lc += w*self.models[idx][0].values_dict[data_type]
         return aperture_lc
+    
+    def get_aperture_flux_errors(self):
+        flux_errs = np.array(self.flux_errs).reshape(-1, self.time.size)
+        ferr2 = flux_errs**2
+        apt_ferr = np.sqrt(np.sum(ferr2, axis=0))
+        return apt_ferr
 
     def _calc_cdpp(self, flux, **kwargs):
         return lk.TessLightCurve(flux=flux+1).estimate_cdpp(**kwargs)
@@ -417,6 +431,7 @@ class Source(object):
                     # marker="X", s=100, color="r", label="Minimum CPM Reg")
         # axs[2].legend()
         return (min_cpm_reg, cdpps)
+    
 
     # def _lsq(self, y, m, reg_matrix, mask=None):
     #     if mask is not None:
